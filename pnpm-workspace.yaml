@@ -1,0 +1,6 @@
+packages:
+  - 'apps/api/*'
+  - 'apps/web/aaf/*'
+  - 'apps/web/dashboard'
+  - 'apps/web/site'
+  - 'packages/*'

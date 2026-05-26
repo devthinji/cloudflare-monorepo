@@ -1,0 +1,23 @@
+name = "api-payments"
+main = "src/index.ts"
+compatibility_date = "2024-05-29"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT        = "development"
+LOG_LEVEL          = "info"
+MPESA_SHORTCODE    = "REPLACE"
+MPESA_CALLBACK_URL = "https://api.yourdomain.com/webhooks/mpesa"
+MPESA_ENVIRONMENT  = "production"
+
+[[d1_databases]]
+binding       = "DB"
+database_name = "platform-db"
+database_id   = "REPLACE_WITH_D1_ID"
+
+[[kv_namespaces]]
+binding    = "PAYMENTS_KV"
+id         = "REPLACE_WITH_KV_ID"
+preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+
+# Secrets: MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_PASSKEY

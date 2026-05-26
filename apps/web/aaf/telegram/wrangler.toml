@@ -1,0 +1,19 @@
+name               = "aaf-telegram"
+main               = "src/index.ts"
+compatibility_date = "2024-05-24"
+
+[vars]
+ENVIRONMENT = "development"
+LOG_LEVEL   = "info"
+
+[[kv_namespaces]]
+binding = "AAF_KV"
+id      = "REPLACE_WITH_AAF_TG_KV_ID"
+
+[[services]]
+binding = "API_GATEWAY"
+service = "api-gateway"
+
+# Secrets (wrangler secret put):
+#   TELEGRAM_BOT_TOKEN
+#   TELEGRAM_WEBHOOK_SECRET

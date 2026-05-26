@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target":           "ES2022",
+    "lib":              ["ES2022", "DOM", "DOM.Iterable"],
+    "module":           "ESNext",
+    "moduleResolution": "bundler",
+    "jsx":              "react-jsx",
+    "strict":           true,
+    "noEmit":           true,
+    "skipLibCheck":     true,
+    "baseUrl":          ".",
+    "paths": {
+      "@repo/types": ["../../../packages/types/src/index.ts"],
+      "@repo/utils": ["../../../packages/utils/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
