@@ -6,6 +6,7 @@ import ConversationsPage from './pages/dash/ConversationsPage'
 import DocumentsPage     from './pages/dash/DocumentsPage'
 import TransactionsPage  from './pages/dash/TransactionsPage'
 import SettingsPage      from './pages/dash/SettingsPage'
+import TemplatesPage    from './pages/dash/TemplatesPage'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="documents"       element={<DocumentsPage />}     />
           <Route path="transactions"    element={<TransactionsPage />}  />
           <Route path="settings"        element={<SettingsPage />}      />
+          <Route path="templates"       element={<TemplatesPage />}     />
           <Route path="*"               element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

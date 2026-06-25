@@ -72,10 +72,12 @@ app.route('/webhooks',         paymentsRoutes)
 
 app.use('/api/v1/agent/*',    jwtMiddleware)
 app.use('/api/v1/docgen/*',   jwtMiddleware)
+app.use('/api/v1/templates/*', jwtMiddleware)  // admin: require JWT
 app.use('/api/v1/payments/*', jwtMiddleware)
 
 app.route('/api/v1/agent',    agentRoutes)
 app.route('/api/v1/docgen',   docgenRoutes)
+app.route('/api/v1/templates', docgenRoutes)  // templates proxied to docgen
 app.route('/api/v1/payments', paymentsRoutes)
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────

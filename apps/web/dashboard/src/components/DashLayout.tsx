@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import {
-  LayoutDashboard, Bot, MessageSquare, FileText, CreditCard, Settings, Globe,
+  LayoutDashboard, Bot, MessageSquare, FileText, CreditCard, Settings, Globe, Package,
 } from 'lucide-react'
 
 const NAV = [
@@ -9,6 +9,7 @@ const NAV = [
   { to: '/conversations', icon: <MessageSquare size={18} />,   label: 'Conversations', end: false },
   { to: '/documents',     icon: <FileText size={18} />,        label: 'Documents',     end: false },
   { to: '/transactions',  icon: <CreditCard size={18} />,      label: 'Transactions',  end: false },
+  { to: '/templates',     icon: <Package size={18} />,         label: 'Templates',     end: false },
   { to: '/settings',      icon: <Settings size={18} />,        label: 'Settings',      end: false },
 ]
 

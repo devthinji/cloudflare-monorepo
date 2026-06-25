@@ -78,3 +78,44 @@ export interface Document {
 export const documentsApi = {
   list: (userId: string) => request<Document[]>('GET', `/api/v1/docgen/documents/${userId}`),
 }
+
+// ── Templates (SKUs) ──────────────────────────────────────────────────────────
+
+export interface Template {
+  id:               string
+  name:             string
+  slug:             string
+  description?:     string
+  documentType:     string
+  tier?:            string
+  agentSlugs:       string   // JSON string[]
+  r2Key:            string
+  previewUrl?:      string
+  fieldSchema:      string   // JSON FieldSchema[]
+  price:            number
+  currency:         string
+  isActive:         boolean
+  extractionStatus: 'pending' | 'processing' | 'done' | 'failed'
+  extractionError?: string
+  createdAt:        string
+  updatedAt:        string
+}
+
+export const templatesApi = {
+  list:   ()                              => request<Template[]>('GET',    '/api/v1/templates'),
+  get:    (id: string)                    => request<Template>  ('GET',    `/api/v1/templates/${id}`),
+  update: (id: string, data: Partial<Template>) =>
+                                             request<Template>  ('PUT',    `/api/v1/templates/${id}`, data),
+  delete: (id: string)                    => request<void>      ('DELETE', `/api/v1/templates/${id}`),
+
+  upload: (formData: FormData)            => fetch(
+    `${(import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')}/api/v1/templates/upload`,
+    {
+      method: 'POST',
+      headers: localStorage.getItem('token')
+        ? { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        : {},
+      body: formData,
+    }
+  ).then(r => r.json()) as Promise<{ success: boolean; data?: { id: string; extractionStatus: string }; error?: string }>,
+}
