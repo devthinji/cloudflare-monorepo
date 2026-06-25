@@ -11,6 +11,8 @@
   "dependencies": {
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
+    "agents": "^0.0.97",
+    "hono-agents": "^0.0.20",
     "drizzle-orm": "^0.31.0",
     "hono": "^4.4.0",
     "hono-rate-limiter": "^0.5.3",

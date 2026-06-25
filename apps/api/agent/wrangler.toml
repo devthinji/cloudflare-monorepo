@@ -1,30 +1,42 @@
-name = "api-agent"
-main = "src/index.ts"
-compatibility_date = "2024-05-29"
+name               = "api-agent"
+main               = "src/index.ts"
+compatibility_date = "2026-06-25"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
 LOG_LEVEL   = "info"
 
-# ── D1 ─────────────────────────────────────────────────────────────────────────
 [[d1_databases]]
 binding       = "DB"
 database_name = "platform-db"
 database_id   = "REPLACE_WITH_D1_ID"
 
-# ── KV — agent config cache ────────────────────────────────────────────────────
 [[kv_namespaces]]
 binding    = "AGENT_KV"
 id         = "REPLACE_WITH_KV_ID"
 preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
 
-# ── R2 — document storage ─────────────────────────────────────────────────────
 [[r2_buckets]]
 binding     = "DOCS_BUCKET"
 bucket_name = "platform-docs"
 
-# ── Service bindings ──────────────────────────────────────────────────────────
+[ai]
+binding = "AI"
+
+# ── Durable Objects (Cloudflare Agents SDK) ───────────────────────────────────
+[[durable_objects.bindings]]
+name       = "TajiAgent"
+class_name = "TajiAgent"
+
+[[durable_objects.bindings]]
+name       = "ElimAgent"
+class_name = "ElimAgent"
+
+[[migrations]]
+tag                = "v1"
+new_sqlite_classes = ["TajiAgent", "ElimAgent"]
+
 [[services]]
 binding = "DOCGEN_WORKER"
 service = "api-docgen"
@@ -33,6 +45,4 @@ service = "api-docgen"
 binding = "PAYMENTS_WORKER"
 service = "api-payments"
 
-# ── Secrets ───────────────────────────────────────────────────────────────────
-# GROQ_API_KEY
-# JWT_SECRET
+# Secrets: GROQ_API_KEY, JWT_SECRET

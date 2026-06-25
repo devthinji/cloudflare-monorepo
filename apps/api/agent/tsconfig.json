@@ -1,13 +1,17 @@
 {
+  "extends": "agents/tsconfig",
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2021",
     "module": "ES2022",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types"],
+    "lib": ["ES2021"],
     "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "skipLibCheck": true
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@repo/types": ["../../packages/types/src/index.ts"],
+      "@repo/utils": ["../../packages/utils/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts"]
 }
