@@ -6,6 +6,7 @@ import type { AgentWorkerEnv } from '@repo/types'
 import { ok, err, generateId, now } from '@repo/utils'
 import { createLogger } from './lib/logger'
 import { callGroq, type GroqMessage } from './lib/groq'
+import { parseDocumentAction, TAJI_SYSTEM_PROMPT } from './lib/taji'
 
 const app = new Hono<{ Bindings: AgentWorkerEnv }>()
 
@@ -82,13 +83,45 @@ app.put('/api/v1/agent/agents/:slug', async (c) => {
   return c.json(ok(updated))
 })
 
+// ─── Seed Taji agent (idempotent) ─────────────────────────────────────────────
+// POST /api/v1/agent/seed
+
+app.post('/api/v1/agent/seed', async (c) => {
+  const log = createLogger(c.env)
+  const db  = createDb(c.env.DB)
+
+  const existing = await db.select().from(agents).where(eq(agents.slug, 'taji')).get()
+  if (existing) return c.json(ok({ message: 'Taji already seeded', id: existing.id }))
+
+  const id = generateId()
+  const ts = now()
+
+  await db.insert(agents).values({
+    id,
+    name:          'Taji',
+    slug:          'taji',
+    description:   'Career document assistant — CVs, application letters, cover letters, resignation letters',
+    systemPrompt:  TAJI_SYSTEM_PROMPT,
+    modelProvider: 'groq',
+    modelId:       'llama-3.3-70b-versatile',
+    channel:       'whatsapp',
+    createdAt:     ts,
+    updatedAt:     ts,
+  })
+
+  log.info({ slug: 'taji' }, 'Taji agent seeded')
+  return c.json(ok({ message: 'Taji seeded', id }), 201)
+})
+
 // ─── Chat — single turn ───────────────────────────────────────────────────────
 // POST /api/v1/agent/chat
 // Body: { agentSlug, userId, message, conversationId? }
 
 app.post('/api/v1/agent/chat', async (c) => {
-  const log  = createLogger(c.env)
-  const db   = createDb(c.env.DB)
+  const log     = createLogger(c.env)
+  const db      = createDb(c.env.DB)
+  const channel = (c.req.header('X-Channel') ?? 'whatsapp') as
+    'whatsapp' | 'telegram' | 'sms' | 'ussd' | 'dashboard'
 
   const body = await c.req.json() as {
     agentSlug:       string
@@ -100,7 +133,7 @@ app.post('/api/v1/agent/chat', async (c) => {
   if (!body.agentSlug || !body.userId || !body.message)
     return c.json(err('agentSlug, userId, message required'), 400)
 
-  // 1. Resolve agent
+  // 1. Resolve agent (KV cache 5 min)
   const cacheKey = `agent:slug:${body.agentSlug}`
   const cached   = await c.env.AGENT_KV.get(cacheKey)
   const agent    = cached
@@ -108,10 +141,7 @@ app.post('/api/v1/agent/chat', async (c) => {
     : await db.select().from(agents).where(eq(agents.slug, body.agentSlug)).get()
 
   if (!agent) return c.json(err('Agent not found'), 404)
-
-  if (!cached) {
-    await c.env.AGENT_KV.put(cacheKey, JSON.stringify(agent), { expirationTtl: 300 })
-  }
+  if (!cached) await c.env.AGENT_KV.put(cacheKey, JSON.stringify(agent), { expirationTtl: 300 })
 
   // 2. Get or create conversation
   let convId = body.conversationId
@@ -119,7 +149,7 @@ app.post('/api/v1/agent/chat', async (c) => {
     convId = generateId()
     await db.insert(conversations).values({
       id: convId, userId: body.userId, agentSlug: body.agentSlug,
-      channel: (c.req.header('X-Channel') ?? 'whatsapp') as 'whatsapp' | 'telegram' | 'sms' | 'ussd' | 'dashboard', createdAt: now(), updatedAt: now(),
+      channel, createdAt: now(), updatedAt: now(),
     })
   }
 
@@ -146,9 +176,41 @@ app.post('/api/v1/agent/chat', async (c) => {
   const groqKey = apiKeys.groq_api_key ?? c.env.GROQ_API_KEY
 
   const response = await callGroq(groqKey, agent.systemPrompt, groqHistory, body.message, agent.modelId)
-  const reply    = response.choices[0]?.message.content ?? ''
+  let reply      = response.choices[0]?.message.content ?? ''
 
-  // 6. Save assistant message
+  // 6. Check if LLM wants to generate a document
+  const docAction = parseDocumentAction(reply)
+  if (docAction && c.env.DOCGEN_WORKER) {
+    log.info({ userId: body.userId, type: docAction.type }, 'agent:docgen:trigger')
+
+    try {
+      const docRes = await c.env.DOCGEN_WORKER.fetch(
+        new Request(`https://internal/api/v1/docgen/${docAction.type === 'cv' ? 'cv' : 'letter'}`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId:    body.userId,
+            agentSlug: body.agentSlug,
+            type:      docAction.type,
+            data:      docAction.data,
+          }),
+        })
+      )
+
+      const docData = await docRes.json() as { success: boolean; data?: { fileUrl: string; title: string } }
+
+      if (docData.success && docData.data) {
+        reply = `✅ Your ${docAction.type.replace(/_/g, ' ')} is ready!\n\n📄 *${docData.data.title}*\n\n${docData.data.fileUrl}\n\nReply *menu* to create another document or ask me anything! 🎉`
+      } else {
+        reply = `Sorry, I couldn't generate your document right now. Please try again in a moment.`
+      }
+    } catch (e) {
+      log.error({ err: e }, 'agent:docgen:error')
+      reply = `Sorry, the document service is temporarily unavailable. Please try again shortly.`
+    }
+  }
+
+  // 7. Save assistant message
   await db.insert(messages).values({
     id: generateId(), conversationId: convId,
     role: 'assistant', content: reply,
@@ -156,7 +218,7 @@ app.post('/api/v1/agent/chat', async (c) => {
     createdAt: now(),
   })
 
-  log.info({ agentSlug: body.agentSlug, tokens: response.usage.total_tokens }, 'chat turn')
+  log.info({ agentSlug: body.agentSlug, tokens: response.usage.total_tokens, channel }, 'chat:turn')
 
   return c.json(ok({ reply, conversationId: convId, tokensUsed: response.usage.total_tokens }))
 })
