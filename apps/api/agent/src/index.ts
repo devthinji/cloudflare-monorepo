@@ -7,6 +7,7 @@ import { ok, err, generateId, now } from '@repo/utils'
 import { createLogger } from './lib/logger'
 import { callGroq, type GroqMessage } from './lib/groq'
 import { parseDocumentAction, TAJI_SYSTEM_PROMPT } from './lib/taji'
+import { parseElimDocumentAction, ELIM_SYSTEM_PROMPT } from './lib/elim'
 
 const app = new Hono<{ Bindings: AgentWorkerEnv }>()
 
@@ -210,6 +211,37 @@ app.post('/api/v1/agent/chat', async (c) => {
     }
   }
 
+
+  // 6b. Check if LLM wants to generate an Elim document (exam, marking scheme etc.)
+  const elimAction = parseElimDocumentAction(reply)
+  if (elimAction && c.env.DOCGEN_WORKER) {
+    log.info({ userId: body.userId, type: elimAction.type }, 'agent:elim:docgen:trigger')
+    try {
+      const docRes = await c.env.DOCGEN_WORKER.fetch(
+        new Request(`https://internal/api/v1/docgen/exam`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId:    body.userId,
+            agentSlug: body.agentSlug,
+            type:      elimAction.type,
+            data:      elimAction.data,
+          }),
+        })
+      )
+      const docData = await docRes.json() as { success: boolean; data?: { fileUrl: string; title: string } }
+      if (docData.success && docData.data) {
+        const label = elimAction.type.replace(/_/g, ' ')
+        reply = `✅ ${label} is ready!\n\n📄 *${docData.data.title}*\n\n${docData.data.fileUrl}\n\nReply *menu* to generate another document.`
+      } else {
+        reply = `Sorry, I could not generate the document right now. Please try again shortly.`
+      }
+    } catch (e) {
+      log.error({ err: e }, 'agent:elim:docgen:error')
+      reply = `The document service is temporarily unavailable. Please try again shortly.`
+    }
+  }
+
   // 7. Save assistant message
   await db.insert(messages).values({
     id: generateId(), conversationId: convId,
@@ -221,6 +253,37 @@ app.post('/api/v1/agent/chat', async (c) => {
   log.info({ agentSlug: body.agentSlug, tokens: response.usage.total_tokens, channel }, 'chat:turn')
 
   return c.json(ok({ reply, conversationId: convId, tokensUsed: response.usage.total_tokens }))
+})
+
+
+// ─── Seed Elim agent (idempotent) ─────────────────────────────────────────────
+// POST /api/v1/agent/seed/elim
+
+app.post('/api/v1/agent/seed/elim', async (c) => {
+  const log = createLogger(c.env)
+  const db  = createDb(c.env.DB)
+
+  const existing = await db.select().from(agents).where(eq(agents.slug, 'elim')).get()
+  if (existing) return c.json(ok({ message: 'Elim already seeded', id: existing.id }))
+
+  const id = generateId()
+  const ts = now()
+
+  await db.insert(agents).values({
+    id,
+    name:          'Elim',
+    slug:          'elim',
+    description:   'CBC education agent — tutorship for students, exam generation for teachers, progress reports for parents',
+    systemPrompt:  ELIM_SYSTEM_PROMPT,
+    modelProvider: 'groq',
+    modelId:       'llama-3.3-70b-versatile',
+    channel:       'whatsapp',
+    createdAt:     ts,
+    updatedAt:     ts,
+  })
+
+  log.info({ slug: 'elim' }, 'Elim agent seeded')
+  return c.json(ok({ message: 'Elim seeded', id }), 201)
 })
 
 // ─── Conversations ────────────────────────────────────────────────────────────
