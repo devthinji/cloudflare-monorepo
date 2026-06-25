@@ -119,7 +119,7 @@ app.post('/api/v1/agent/chat', async (c) => {
     convId = generateId()
     await db.insert(conversations).values({
       id: convId, userId: body.userId, agentSlug: body.agentSlug,
-      channel: 'dashboard', createdAt: now(), updatedAt: now(),
+      channel: (c.req.header('X-Channel') ?? 'whatsapp') as 'whatsapp' | 'telegram' | 'sms' | 'ussd' | 'dashboard', createdAt: now(), updatedAt: now(),
     })
   }
 
