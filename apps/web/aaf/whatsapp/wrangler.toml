@@ -1,6 +1,7 @@
 name               = "aaf-whatsapp"
 main               = "src/index.ts"
-compatibility_date = "2024-05-24"
+compatibility_date = "2026-06-25"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
@@ -10,6 +11,7 @@ LOG_LEVEL   = "info"
 binding = "AAF_KV"
 id      = "REPLACE_WITH_AAF_WA_KV_ID"
 
+# Routes through gateway (auth, rate limiting, logging)
 [[services]]
 binding = "API_GATEWAY"
 service = "api-gateway"

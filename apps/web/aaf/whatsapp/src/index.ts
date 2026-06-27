@@ -1,23 +1,41 @@
+// ─── AAF WhatsApp Worker ───────────────────────────────────────────────────────
+//
+// Receives WhatsApp webhooks, parses incoming messages,
+// routes them to TajiAgent (default) or ElimAgent via the API Gateway,
+// and sends replies back via the WhatsApp Cloud API.
+//
+// Session state (agentSlug, interviewMode) stored in KV per user.
+// Commands: /taji, /elim, /reset, /help
+
 import { Hono } from 'hono'
 import { ok, err } from '@repo/utils'
 import { createLogger } from './lib/logger'
-import {
-  parseIncomingMessage, sendTextMessage, type WaWebhookPayload,
-} from './lib/whatsapp'
+import { parseIncomingMessage, sendTextMessage, type WaWebhookPayload } from './lib/whatsapp'
 
 interface Env {
-  ENVIRONMENT:            string
-  LOG_LEVEL:              string
-  WHATSAPP_TOKEN:         string
-  WHATSAPP_VERIFY_TOKEN:  string
+  ENVIRONMENT:              string
+  LOG_LEVEL:                string
+  WHATSAPP_TOKEN:           string
+  WHATSAPP_VERIFY_TOKEN:    string
   WHATSAPP_PHONE_NUMBER_ID: string
-  AAF_KV:                 KVNamespace
-  API_GATEWAY:            Fetcher
+  AAF_KV:                   KVNamespace
+  API_GATEWAY:              Fetcher
 }
 
 interface Session {
-  agentSlug?:      string
-  conversationId?: string
+  agentSlug: string   // 'taji' | 'elim'
+  lang?:     string   // 'en' | 'sw'
+}
+
+const DEFAULT_AGENT = 'taji'
+
+// ── Commands ──────────────────────────────────────────────────────────────────
+
+const COMMANDS: Record<string, (session: Session) => { reply: string; session: Session }> = {
+  '/taji':  (s) => ({ reply: '✅ Switched to *Taji* — your document assistant.\n\nWhat document can I help you create today?', session: { ...s, agentSlug: 'taji' } }),
+  '/elim':  (s) => ({ reply: '✅ Switched to *Elim* — your CBC education assistant.\n\nWhat subject or topic can I help with?', session: { ...s, agentSlug: 'elim' } }),
+  '/reset': (s) => ({ reply: '🔄 Conversation reset. How can I help you?', session: { agentSlug: s.agentSlug } }),
+  '/help':  (s) => ({ reply: `*Available commands:*\n\n/taji — Switch to document assistant\n/elim — Switch to education assistant\n/reset — Clear conversation\n/help — Show this menu\n\nCurrent agent: *${s.agentSlug}*`, session: s }),
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -42,39 +60,54 @@ app.post('/webhooks/whatsapp', async (c) => {
   if (payload.object !== 'whatsapp_business_account') return c.json(ok(null))
 
   const incoming = parseIncomingMessage(payload)
-  if (!incoming) return c.json(ok(null))
+  if (!incoming) return c.json(ok(null))  // ignore non-text events (status updates etc.)
 
   const { from, text, phoneNumberId } = incoming
-  log.info({ from, preview: text.slice(0, 80) }, 'wa:message')
+  log.info({ from, preview: text.slice(0, 80) }, 'wa:in')
+
+  // ── Load session ────────────────────────────────────────────────────────────
+  const sessionKey = `wa:session:${from}`
+  let session: Session = JSON.parse(await c.env.AAF_KV.get(sessionKey) ?? 'null') ?? { agentSlug: DEFAULT_AGENT }
 
   try {
-    const sessionKey = `wa:session:${from}`
-    const session    = JSON.parse(await c.env.AAF_KV.get(sessionKey) ?? '{}') as Session
-    const agentSlug  = session.agentSlug ?? 'taji'
+    // ── Handle commands ────────────────────────────────────────────────────────
+    const cmd = text.trim().toLowerCase().split(' ')[0]
+    if (cmd in COMMANDS) {
+      const result = COMMANDS[cmd](session)
+      session = result.session
+      await c.env.AAF_KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 86400 * 30 })
 
-    const res = await c.env.API_GATEWAY.fetch(
-      new Request('https://internal/api/v1/agent/chat', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': from, 'X-Channel': 'whatsapp' },
-        body: JSON.stringify({ agentSlug, userId: from, message: text, conversationId: session.conversationId }),
-      })
-    )
+      // On /reset, also tell the agent to clear its Durable Object state
+      if (cmd === '/reset') {
+        await callAgent(c.env, session.agentSlug, from, 'reset', undefined, phoneNumberId)
+      }
 
-    const data = await res.json() as { success: boolean; data?: { reply: string; conversationId: string } }
-
-    if (!data.success || !data.data) {
-      await sendTextMessage(phoneNumberId, from, 'Sorry, something went wrong. Please try again.', c.env.WHATSAPP_TOKEN)
+      await sendTextMessage(phoneNumberId, from, result.reply, c.env.WHATSAPP_TOKEN)
       return c.json(ok(null))
     }
 
-    const { reply, conversationId } = data.data
-    await c.env.AAF_KV.put(sessionKey, JSON.stringify({ ...session, conversationId }), { expirationTtl: 86400 * 7 })
-    await sendTextMessage(phoneNumberId, from, reply, c.env.WHATSAPP_TOKEN)
-    log.info({ from, agentSlug, conversationId }, 'wa:reply:sent')
+    // ── Route to agent ─────────────────────────────────────────────────────────
+    const reply = await callAgent(c.env, session.agentSlug, from, 'chat', text, phoneNumberId)
+
+    // Save session (agentSlug may have been set on first message)
+    await c.env.AAF_KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 86400 * 30 })
+
+    if (reply) {
+      // WhatsApp has a 4096 char message limit — split if needed
+      const chunks = splitMessage(reply)
+      for (const chunk of chunks) {
+        await sendTextMessage(phoneNumberId, from, chunk, c.env.WHATSAPP_TOKEN)
+      }
+      log.info({ from, agentSlug: session.agentSlug, chunks: chunks.length }, 'wa:out')
+    }
 
   } catch (e) {
-    log.error({ err: e }, 'wa:error')
-    await sendTextMessage(incoming.phoneNumberId, from, 'Something went wrong. Please try again shortly.', c.env.WHATSAPP_TOKEN).catch(() => {})
+    log.error({ err: e, from }, 'wa:error')
+    await sendTextMessage(
+      phoneNumberId, from,
+      'Something went wrong on our end. Please try again in a moment.',
+      c.env.WHATSAPP_TOKEN
+    ).catch(() => {})
   }
 
   return c.json(ok(null))
@@ -87,8 +120,54 @@ app.get('/health', (c) =>
 )
 
 app.onError((error, c) => {
-  createLogger(c.env).error({ err: error }, 'aaf-whatsapp:unhandled')
+  createLogger(c.env).error({ err: error }, 'wa:unhandled')
   return c.json(err('Internal server error'), 500)
 })
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function callAgent(
+  env:           Env,
+  agentSlug:     string,
+  userId:        string,
+  type:          'chat' | 'reset',
+  message?:      string,
+  phoneNumberId?: string,
+): Promise<string> {
+  const body: Record<string, string> = { agentSlug, userId, channel: 'whatsapp', type }
+  if (message) body.message = message
+
+  const res = await env.API_GATEWAY.fetch(
+    new Request('https://internal/api/v1/agent/chat', {
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id':    userId,
+        'X-Channel':    'whatsapp',
+      },
+      body: JSON.stringify(body),
+    })
+  )
+
+  const data = await res.json() as { success: boolean; data?: { reply: string } }
+  return data?.data?.reply ?? ''
+}
+
+// Split long replies into WhatsApp-safe chunks (max 4000 chars, split on newline)
+function splitMessage(text: string, max = 4000): string[] {
+  if (text.length <= max) return [text]
+  const chunks: string[] = []
+  let current = ''
+  for (const line of text.split('\n')) {
+    if ((current + '\n' + line).length > max) {
+      if (current) chunks.push(current.trim())
+      current = line
+    } else {
+      current = current ? current + '\n' + line : line
+    }
+  }
+  if (current) chunks.push(current.trim())
+  return chunks
+}
 
 export default app
