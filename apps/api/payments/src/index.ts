@@ -124,6 +124,13 @@ app.post('/api/v1/payments/mpesa/stk', async (c) => {
       { expirationTtl: 3600 }
     )
 
+    // Cache userId + agentSlug for agent notification after callback
+    await c.env.PAYMENTS_KV.put(
+      `checkout:meta:${result.CheckoutRequestID}`,
+      JSON.stringify({ userId: body.userId, agentSlug: body.agentSlug }),
+      { expirationTtl: 3600 }
+    )
+
     log.info({ txId, amount: body.amount, phone: body.phoneNumber }, 'STK push initiated')
     return c.json(ok({
       transactionId:    txId,
@@ -204,6 +211,28 @@ app.post('/webhooks/mpesa', async (c) => {
       .where(eq(transactions.id, txId))
 
     log.info({ txId, status, receipt: parsed.mpesaReceiptNumber }, 'transaction updated')
+
+    // Notify agent — triggers document render on payment success
+    if (status === 'completed') {
+      try {
+        // Look up userId from KV (stored as checkout:{id} → userId:agentSlug)
+        const meta = await c.env.PAYMENTS_KV.get(`checkout:meta:${parsed.checkoutRequestId}`)
+        if (meta) {
+          const { userId, agentSlug } = JSON.parse(meta) as { userId: string; agentSlug: string }
+          await c.env.AGENT_WORKER.fetch(
+            new Request('https://internal/api/v1/agent/chat', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Internal': 'payments' },
+              body: JSON.stringify({ agentSlug, userId, channel: 'whatsapp', type: 'check_payment' }),
+            })
+          )
+          log.info({ txId, userId, agentSlug }, 'agent:notified')
+        }
+      } catch (notifyErr) {
+        log.warn({ err: notifyErr }, 'agent notify failed — agent will poll on next message')
+      }
+    }
+
   } catch (e) {
     log.error({ err: e }, 'callback processing error')
   }
@@ -232,3 +261,15 @@ app.onError((error, c) => {
 })
 
 export default app
+
+// ─── Notify agent after payment confirmed (called by callback handler) ────────
+// POST /api/v1/payments/notify-agent
+// Body: { txId, userId, agentSlug, status, amount }
+
+app.post('/api/v1/payments/notify-agent', async (c) => {
+  const log  = createLogger(c.env)
+  const body = await c.req.json() as { txId: string; userId: string; agentSlug: string; status: string; amount: number }
+  log.info({ txId: body.txId, status: body.status }, 'agent:notify')
+  // The agent worker polls KV for payment status — this endpoint is for future webhook push
+  return c.json(ok({ received: true }))
+})

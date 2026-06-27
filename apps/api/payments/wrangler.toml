@@ -1,6 +1,6 @@
-name = "api-payments"
-main = "src/index.ts"
-compatibility_date = "2024-05-29"
+name               = "api-payments"
+main               = "src/index.ts"
+compatibility_date = "2026-06-25"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
@@ -19,5 +19,9 @@ database_id   = "REPLACE_WITH_D1_ID"
 binding    = "PAYMENTS_KV"
 id         = "REPLACE_WITH_KV_ID"
 preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+
+[[services]]
+binding = "AGENT_WORKER"
+service = "api-agent"
 
 # Secrets: MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_PASSKEY

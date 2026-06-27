@@ -68,6 +68,7 @@ app.post('/api/v1/agent/chat', async (c) => {
   if (!body.agentSlug || !body.userId) return c.json(err('agentSlug, userId required'), 400)
   const type = body.type ?? 'chat'
   if (type === 'chat' && !body.message) return c.json(err('message required for chat'), 400)
+  // check_payment and reset do not require a message
   try {
     const agentBinding = body.agentSlug === 'elim' ? c.env.ElimAgent : c.env.TajiAgent
     const stub = agentBinding.get(agentBinding.idFromName(body.userId))

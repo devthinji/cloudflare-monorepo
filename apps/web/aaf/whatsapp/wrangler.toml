@@ -11,12 +11,11 @@ LOG_LEVEL   = "info"
 binding = "AAF_KV"
 id      = "REPLACE_WITH_AAF_WA_KV_ID"
 
-# Routes through gateway (auth, rate limiting, logging)
 [[services]]
 binding = "API_GATEWAY"
 service = "api-gateway"
 
-# Secrets (wrangler secret put):
+# Secrets:
 #   WHATSAPP_TOKEN
 #   WHATSAPP_VERIFY_TOKEN
 #   WHATSAPP_PHONE_NUMBER_ID

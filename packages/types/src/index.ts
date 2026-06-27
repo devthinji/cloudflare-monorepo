@@ -46,6 +46,7 @@ export interface PaymentsWorkerEnv extends BaseWorkerEnv {
   MPESA_SHORTCODE:      string
   MPESA_CALLBACK_URL:   string
   MPESA_ENVIRONMENT:    string
+  AGENT_WORKER:         Fetcher   // notify agent on payment confirmation
 }
 
 export interface AafWorkerEnv extends BaseWorkerEnv {
