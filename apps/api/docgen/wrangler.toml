@@ -1,6 +1,6 @@
-name = "api-docgen"
-main = "src/index.ts"
-compatibility_date = "2024-05-29"
+name               = "api-docgen"
+main               = "src/index.ts"
+compatibility_date = "2026-06-25"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
@@ -13,5 +13,10 @@ database_name = "platform-db"
 database_id   = "REPLACE_WITH_D1_ID"
 
 [[r2_buckets]]
-binding     = "DOCS_BUCKET"
+binding    = "DOCS_BUCKET"
 bucket_name = "platform-docs"
+
+[ai]
+binding = "AI"
+
+# Secrets: GROQ_API_KEY

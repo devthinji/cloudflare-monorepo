@@ -8,12 +8,17 @@ import { createLogger } from './lib/logger'
 import { generateCv, type CvData } from './lib/cv'
 import { templates, documents } from './db/schema'
 import { runExtractionPipeline } from './pipeline/extractor'
+import { pipelineFactory }       from './pipeline/factory'
+import { registerAllConverters } from './pipeline/converters'
 import { InterviewEngine } from './pipeline/interview-engine'
 import type { SKUSchema, CollectionState } from './pipeline/field-schema'
 
 const app = new Hono<{ Bindings: DocgenWorkerEnv }>()
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
+
+// Register pipeline converters at startup
+registerAllConverters()
 
 app.use('*', rateLimiter({
   windowMs: 60_000, limit: 60,
@@ -363,3 +368,213 @@ app.onError((error, c) => {
 })
 
 export default app
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SKU ENDPOINTS — factory-powered
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ─── Drizzle SKU table (inline until migration runs) ─────────────────────────
+import { sqliteTable, text, real, integer } from 'drizzle-orm/sqlite-core'
+
+const skus = sqliteTable('skus', {
+  id:                 text('id').primaryKey(),
+  name:               text('name').notNull(),
+  slug:               text('slug').notNull(),
+  description:        text('description'),
+  agentSlug:          text('agent_slug').notNull(),
+  templateType:       text('template_type').notNull(),
+  fileKey:            text('file_key').notNull(),
+  previewKey:         text('preview_key'),
+  markdownPreview:    text('markdown_preview'),
+  price:              real('price').notNull().default(0),
+  currency:           text('currency').notNull().default('KES'),
+  fieldSchema:        text('field_schema').notNull().default('[]'),
+  conversationSteps:  text('conversation_steps'),
+  isActive:           integer('is_active').notNull().default(0),
+  requiresReview:     integer('requires_review').notNull().default(1),
+  version:            integer('version').notNull().default(1),
+  createdAt:          text('created_at').notNull(),
+  updatedAt:          text('updated_at').notNull(),
+})
+
+// ─── POST /api/v1/docgen/skus/upload ─────────────────────────────────────────
+// Upload template file → factory extracts schema → returns draft SKU for review
+
+app.post('/api/v1/docgen/skus/upload', async (c) => {
+  const log = createLogger(c.env)
+  const db  = drizzle(c.env.DB)
+
+  const formData     = await c.req.formData()
+  const file         = formData.get('file') as File | null
+  const name         = formData.get('name') as string
+  const agentSlug    = formData.get('agentSlug') as string ?? 'taji'
+  const documentType = formData.get('documentType') as string ?? 'document'
+  const price        = parseFloat(formData.get('price') as string ?? '200')
+
+  if (!file || !name) return c.json(err('file and name required'), 400)
+
+  const ext       = file.name.split('.').pop()?.toLowerCase() ?? 'docx'
+  const supported = pipelineFactory.supports(ext, 'placeholder_schema')
+  if (!supported) {
+    return c.json(err(`Unsupported file type: .${ext}. Supported: docx, pdf, png, jpg, canva`), 400)
+  }
+
+  const fileBuffer = await file.arrayBuffer()
+  const fileKey    = `templates/${generateId()}.${ext}`
+  const skuId      = generateId()
+  const slug       = slugify(`${name}-${skuId.slice(0, 6)}`)
+  const ts         = now()
+
+  try {
+    // 1. Store original file in R2
+    await c.env.DOCS_BUCKET.put(fileKey, fileBuffer, {
+      httpMetadata: { contentType: file.type },
+    })
+
+    // 2. Run factory extraction pipeline
+    const extraction = await pipelineFactory.run(
+      fileBuffer, ext, 'placeholder_schema', c.env,
+      { templateName: name, documentType },
+    )
+
+    if (extraction.error) {
+      return c.json(err(`Extraction failed: ${extraction.error}`), 422)
+    }
+
+    // 3. Run markdown conversion in parallel (non-blocking)
+    let markdownPreview: string | undefined
+    if (pipelineFactory.supports(ext, 'markdown')) {
+      const mdResult = await pipelineFactory.run(fileBuffer, ext, 'markdown', c.env, { templateName: name })
+      markdownPreview = mdResult.markdown
+    }
+
+    // 4. Determine if AI-extracted (requires review)
+    const requiresReview = ext === 'canva' || ext === 'png' || ext === 'jpg' || ext === 'image' ? 1 : 0
+
+    // 5. Save draft SKU to DB
+    await db.insert(skus).values({
+      id:              skuId,
+      name,
+      slug,
+      description:     extraction.description,
+      agentSlug,
+      templateType:    ext,
+      fileKey,
+      markdownPreview,
+      price,
+      fieldSchema:     JSON.stringify(extraction.placeholder_schema ?? []),
+      isActive:        0,           // always draft until admin publishes
+      requiresReview,
+      version:         1,
+      createdAt:       ts,
+      updatedAt:       ts,
+    })
+
+    log.info({ skuId, name, ext, fields: extraction.placeholder_schema?.length }, 'sku:uploaded')
+
+    return c.json(ok({
+      id:             skuId,
+      slug,
+      name,
+      fieldSchema:    extraction.placeholder_schema,
+      description:    extraction.description,
+      markdownPreview,
+      requiresReview: !!requiresReview,
+      status:         'draft',
+      message:        requiresReview
+        ? '⚠️ AI-extracted — please review fields before publishing.'
+        : '✅ Fields extracted. Review and publish when ready.',
+    }), 201)
+
+  } catch (e) {
+    log.error({ err: e }, 'sku:upload:error')
+    return c.json(err('Upload failed'), 500)
+  }
+})
+
+// ─── GET /api/v1/docgen/skus ──────────────────────────────────────────────────
+// List all SKUs (admin) or active SKUs by agent (agent worker)
+
+app.get('/api/v1/docgen/skus', async (c) => {
+  const db        = drizzle(c.env.DB)
+  const agentSlug = c.req.query('agentSlug')
+  const activeOnly = c.req.query('active') === 'true'
+
+  const rows = await db.select().from(skus).orderBy(desc(skus.createdAt))
+  const filtered = rows
+    .filter(r => agentSlug   ? r.agentSlug === agentSlug   : true)
+    .filter(r => activeOnly  ? r.isActive  === 1           : true)
+    .map(r => ({ ...r, fieldSchema: JSON.parse(r.fieldSchema), conversationSteps: r.conversationSteps ? JSON.parse(r.conversationSteps) : null }))
+
+  return c.json(ok(filtered))
+})
+
+// ─── GET /api/v1/docgen/skus/:id ─────────────────────────────────────────────
+
+app.get('/api/v1/docgen/skus/:id', async (c) => {
+  const db  = drizzle(c.env.DB)
+  const row = await db.select().from(skus).where(eq(skus.id, c.req.param('id'))).get()
+  if (!row) return c.json(err('SKU not found'), 404)
+  return c.json(ok({ ...row, fieldSchema: JSON.parse(row.fieldSchema), conversationSteps: row.conversationSteps ? JSON.parse(row.conversationSteps) : null }))
+})
+
+// ─── PATCH /api/v1/docgen/skus/:id ───────────────────────────────────────────
+// Admin edits fields, price, steps — or publishes (isActive: true)
+
+app.patch('/api/v1/docgen/skus/:id', async (c) => {
+  const db   = drizzle(c.env.DB)
+  const log  = createLogger(c.env)
+  const body = await c.req.json() as {
+    name?:              string
+    price?:             number
+    agentSlug?:         string
+    fieldSchema?:       unknown[]
+    conversationSteps?: unknown
+    isActive?:          boolean
+    description?:       string
+  }
+
+  const existing = await db.select().from(skus).where(eq(skus.id, c.req.param('id'))).get()
+  if (!existing) return c.json(err('SKU not found'), 404)
+
+  const updates: Partial<typeof existing> = { updatedAt: now() }
+  if (body.name         !== undefined) updates.name        = body.name
+  if (body.price        !== undefined) updates.price       = body.price
+  if (body.agentSlug    !== undefined) updates.agentSlug   = body.agentSlug
+  if (body.description  !== undefined) updates.description = body.description
+  if (body.fieldSchema  !== undefined) {
+    updates.fieldSchema = JSON.stringify(body.fieldSchema)
+    updates.version     = (existing.version ?? 1) + 1  // bump version on schema change
+  }
+  if (body.conversationSteps !== undefined) updates.conversationSteps = JSON.stringify(body.conversationSteps)
+  if (body.isActive     !== undefined) {
+    updates.isActive      = body.isActive ? 1 : 0
+    updates.requiresReview = 0   // publishing clears review flag
+  }
+
+  await db.update(skus).set(updates).where(eq(skus.id, c.req.param('id')))
+  log.info({ id: c.req.param('id'), isActive: updates.isActive }, 'sku:updated')
+  return c.json(ok({ updated: true, version: updates.version ?? existing.version }))
+})
+
+// ─── DELETE /api/v1/docgen/skus/:id ──────────────────────────────────────────
+
+app.delete('/api/v1/docgen/skus/:id', async (c) => {
+  const db  = drizzle(c.env.DB)
+  const log = createLogger(c.env)
+  const row = await db.select().from(skus).where(eq(skus.id, c.req.param('id'))).get()
+  if (!row) return c.json(err('SKU not found'), 404)
+  // Delete from R2 too
+  await c.env.DOCS_BUCKET.delete(row.fileKey).catch(() => {})
+  if (row.previewKey) await c.env.DOCS_BUCKET.delete(row.previewKey).catch(() => {})
+  await db.delete(skus).where(eq(skus.id, c.req.param('id')))
+  log.info({ id: c.req.param('id') }, 'sku:deleted')
+  return c.json(ok({ deleted: true }))
+})
+
+// ─── GET /api/v1/docgen/pipelines ────────────────────────────────────────────
+// List registered converters — useful for dashboard to know what's supported
+
+app.get('/api/v1/docgen/pipelines', (c) =>
+  c.json(ok({ converters: pipelineFactory.list() }))
+)
