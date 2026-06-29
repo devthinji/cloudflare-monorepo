@@ -24,13 +24,12 @@ if ! bash "$ROOT/scripts/validate.sh"; then
 fi
 
 # ─── Apply D1 migrations to local DB ──────────────────────────────────────────
-echo "Applying D1 migrations..."
-(cd apps/api/agent && npx wrangler d1 execute platform-db --local --file=migrations/0001_init.sql 2>/dev/null || true)
-(cd apps/api/agent && npx wrangler d1 execute platform-db --local --file=migrations/0002_users.sql 2>/dev/null || true)
-(cd apps/api/docgen && npx wrangler d1 execute platform-db --local --file=migrations/0002_templates.sql 2>/dev/null || true)
-(cd apps/api/docgen && npx wrangler d1 execute platform-db --local --file=migrations/0003_skus.sql 2>/dev/null || true)
-(cd apps/api/docgen && npx wrangler d1 execute platform-db --local --file=migrations/0004_documents.sql 2>/dev/null || true)
-(cd apps/api/payments && npx wrangler d1 execute platform-db --local --file=migrations/0005_transactions.sql 2>/dev/null || true)
+echo "Applying D1 migrations from Gateway..."
+for file in apps/api/gateway/drizzle/migration/*.sql; do
+  [ -e "$file" ] || continue
+  echo "Applying $(basename "$file")..."
+  (cd apps/api/gateway && npx wrangler d1 execute platform-db --local --file="drizzle/migration/$(basename "$file")" 2>/dev/null || true)
+done
 echo "Migrations applied."
 
 # ─── Start services ────────────────────────────────────────────────────────────
