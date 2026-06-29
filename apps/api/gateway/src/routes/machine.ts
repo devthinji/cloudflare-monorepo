@@ -103,8 +103,8 @@ machineRoutes.post('/advance', async (c) => {
             agentSlug:        context.agentSlug,
             amount:           sku.price,
             phoneNumber:      context.userId,
-            description:      `Taji: ${sku.name}`,
-            accountReference: `TAJI-${Date.now()}`,
+            description:      `${context.agentSlug}: ${sku.name}`,
+            accountReference: `DOC-${Date.now()}`,
           }),
         }))
         const data = await res.json() as { success: boolean; data?: { transactionId: string; checkoutRequestId: string; message: string } }

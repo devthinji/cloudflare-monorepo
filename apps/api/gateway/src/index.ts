@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { timing } from 'hono/timing'
-import { rateLimiter } from 'hono-rate-limiter'
+// import { rateLimiter } from 'hono-rate-limiter' // disabled — async initStore fails in Workers
 import type { GatewayEnv } from '@repo/types'
 import { err } from '@repo/utils'
 import { createLogger } from './lib/logger'
@@ -36,12 +36,12 @@ app.use('*', async (c, next) => {
 
 // ─── Rate limiting — 60 req/min per IP ───────────────────────────────────────
 
-app.use('*', rateLimiter({
-  windowMs:        60_000,
-  limit:           60,
-  standardHeaders: 'draft-6',
-  keyGenerator:    (c) => c.req.header('CF-Connecting-IP') ?? 'unknown',
-}))
+// app.use('*', rateLimiter({
+//   windowMs:        60_000,
+//   limit:           60,
+//   standardHeaders: 'draft-6',
+//   keyGenerator:    (c) => c.req.header('CF-Connecting-IP') ?? 'unknown',
+// }))
 
 // ─── Global middleware ────────────────────────────────────────────────────────
 

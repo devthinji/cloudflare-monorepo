@@ -38,7 +38,7 @@ app.post('/webhooks/sms', async (c) => {
   try {
     const sessionKey = `sms:session:${from}`
     const session    = JSON.parse(await c.env.AAF_KV.get(sessionKey) ?? '{}') as Session
-    const agentSlug  = session.agentSlug ?? 'taji'
+    const agentSlug  = session.agentSlug ?? 'default'
 
     const res = await c.env.API_GATEWAY.fetch(
       new Request('https://internal/api/v1/agent/chat', {

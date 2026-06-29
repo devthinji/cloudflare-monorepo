@@ -1,3 +1,5 @@
-// ─── Machine barrel export ────────────────────────────────────────────────────
-export * from './states'
-export * from './machine'
+export { ConversationMachine } from './machine'
+export type { MachineServices, AdvanceResult } from './machine'
+import { initialContext } from './steps'
+// export { initialContext } from './states'
+// export type { MachineContext, MachineStage, LiveSKU, LiveFieldSchema, CollectSubState, UserClass } from './states'

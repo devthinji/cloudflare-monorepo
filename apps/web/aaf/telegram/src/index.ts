@@ -66,7 +66,7 @@ app.post('/webhooks/telegram', async (c) => {
   try {
     const sessionKey = `tg:session:${userId}`
     const session    = JSON.parse(await c.env.AAF_KV.get(sessionKey) ?? '{}') as Session
-    const agentSlug  = session.agentSlug ?? 'taji'
+    const agentSlug  = session.agentSlug ?? 'default'
 
     const res = await c.env.API_GATEWAY.fetch(
       new Request('https://internal/api/v1/agent/chat', {

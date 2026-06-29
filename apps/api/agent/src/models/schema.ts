@@ -39,14 +39,14 @@ export const messages = sqliteTable('messages', {
 })
 
 export const users = sqliteTable('users', {
-  id:           text('id').primaryKey(),         // WhatsApp number / channel user id
+  id:           text('id').primaryKey(),
   name:         text('name').notNull(),
-  phone:        text('phone'),                   // normalised E.164 if whatsapp
+  phone:        text('phone'),
   channel:      text('channel').notNull().default('whatsapp'),
-  agentSlug:    text('agent_slug'),              // last agent they spoke to
+  agentSlug:    text('agent_slug'),
   isRegistered: integer('is_registered', { mode: 'boolean' }).notNull().default(false),
   isBlocked:    integer('is_blocked',    { mode: 'boolean' }).notNull().default(false),
-  metadata:     text('metadata'),                // JSON — extra profile data
+  metadata:     text('metadata'),
   createdAt:    text('created_at').notNull(),
   updatedAt:    text('updated_at').notNull(),
 })

@@ -1,12 +1,6 @@
-// ─── Shared Types — @repo/types ───────────────────────────────────────────────
-
-// ── API Response envelope ────────────────────────────────────────────────────
-
 export type ApiResponse<T = unknown> =
   | { success: true;  data: T; message?: string }
   | { success: false; error: string }
-
-// ── Worker Environments ──────────────────────────────────────────────────────
 
 export interface BaseWorkerEnv {
   ENVIRONMENT?: string
@@ -31,16 +25,15 @@ export interface AgentWorkerEnv extends BaseWorkerEnv {
   DOCGEN_WORKER:      Fetcher
   PAYMENTS_WORKER:    Fetcher
   AI:                 unknown
-  TajiAgent:          DurableObjectNamespace
-  ElimAgent:          DurableObjectNamespace
+  AGENT_DO:           DurableObjectNamespace
 }
 
 export interface DocgenWorkerEnv extends BaseWorkerEnv {
   DB:                    D1Database
   DOCS_BUCKET:           R2Bucket
   OPENROUTER_API_KEY:    string
-  AI:                    unknown   // Cloudflare Workers AI binding
-  DOCS_BUCKET_PUBLIC_URL?: string  // CDN base URL if bucket is public
+  AI:                    unknown
+  DOCS_BUCKET_PUBLIC_URL?: string
 }
 
 export interface PaymentsWorkerEnv extends BaseWorkerEnv {
@@ -52,7 +45,7 @@ export interface PaymentsWorkerEnv extends BaseWorkerEnv {
   MPESA_SHORTCODE:      string
   MPESA_CALLBACK_URL:   string
   MPESA_ENVIRONMENT:    string
-  AGENT_WORKER:         Fetcher   // notify agent on payment confirmation
+  AGENT_WORKER:         Fetcher
 }
 
 export interface AafWorkerEnv extends BaseWorkerEnv {
@@ -62,8 +55,6 @@ export interface AafWorkerEnv extends BaseWorkerEnv {
   WHATSAPP_VERIFY_TOKEN:   string
   WHATSAPP_PHONE_NUMBER_ID: string
 }
-
-// ── Domain Models ─────────────────────────────────────────────────────────────
 
 export interface Agent {
   id:            string
@@ -107,7 +98,7 @@ export interface Document {
   id:           string
   userId:       string
   agentSlug:    string
-  type:         'cv' | 'application_letter' | 'resignation_letter' | 'cover_letter'
+  type:         string
   title:        string
   fileUrl?:     string
   templateUsed?: string
@@ -141,8 +132,6 @@ export interface User {
   createdAt: string
 }
 
-// ── WhatsApp channel ──────────────────────────────────────────────────────────
-
 export interface NormalisedMessage {
   from:      string
   text?:     string
@@ -150,8 +139,6 @@ export interface NormalisedMessage {
   type:      'text' | 'image' | 'document' | 'audio' | 'interactive'
   raw?:      unknown
 }
-
-// ── Drizzle inference helpers ─────────────────────────────────────────────────
 
 export type InferSelect<T extends { $inferSelect: unknown }> = T['$inferSelect']
 export type InferInsert<T extends { $inferInsert: unknown }> = T['$inferInsert']

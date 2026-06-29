@@ -1,11 +1,12 @@
 packages:
   - 'apps/api/*'
   - 'apps/web/aaf/*'
-  - 'apps/web/dashboard'
-  - 'apps/web/site'
+  - 'apps/web/pages/dashboard'
+  - 'apps/web/pages/site'
   - 'packages/*'
 allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
+minimumReleaseAge: 0
 registrySupportsTimeField: true

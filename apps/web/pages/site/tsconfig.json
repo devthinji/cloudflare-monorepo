@@ -8,7 +8,6 @@
     "strict":           true,
     "noEmit":           true,
     "skipLibCheck":     true,
-    "baseUrl":          ".",
     "paths": {
       "@repo/types": ["../../../packages/types/src/index.ts"],
       "@repo/utils": ["../../../packages/utils/src/index.ts"]

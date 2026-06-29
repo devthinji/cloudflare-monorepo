@@ -1,12 +1,3 @@
-// ─── AAF WhatsApp Worker ───────────────────────────────────────────────────────
-//
-// All messages go through the ConversationMachine in api-gateway:
-//   WhatsApp → aaf-whatsapp → api-gateway /api/v1/machine/advance
-//
-// Machine drives: Identify → Auth → Collect/Fill/Deliver → Farewell
-//
-// Commands: /reset  /help  /taji  /elim
-
 import { Hono } from 'hono'
 import { ok, err } from '@repo/utils'
 import { createLogger } from './lib/logger'
@@ -22,24 +13,21 @@ interface Env {
   API_GATEWAY:              Fetcher
 }
 
-interface Session { agentSlug: string }
-const DEFAULT_AGENT = 'taji'
+interface Session { agentSlug?: string }
+const DEFAULT_AGENT = 'default'
 
 const app = new Hono<{ Bindings: Env }>()
 
-// ─── Webhook verification ─────────────────────────────────────────────────────
 app.get('/webhooks/whatsapp', (c) => {
-  const mode      = c.req.query('hub.mode')
-  const token     = c.req.query('hub.verify_token')
+  const mode = c.req.query('hub.mode')
+  const token = c.req.query('hub.verify_token')
   const challenge = c.req.query('hub.challenge')
-  if (mode === 'subscribe' && token === c.env.WHATSAPP_VERIFY_TOKEN)
-    return new Response(challenge ?? '', { status: 200 })
+  if (mode === 'subscribe' && token === c.env.WHATSAPP_VERIFY_TOKEN) return new Response(challenge ?? '', { status: 200 })
   return c.text('Forbidden', 403)
 })
 
-// ─── Incoming message ─────────────────────────────────────────────────────────
 app.post('/webhooks/whatsapp', async (c) => {
-  const log     = createLogger(c.env)
+  const log = createLogger(c.env)
   const payload = await c.req.json() as WaWebhookPayload
   if (payload.object !== 'whatsapp_business_account') return c.json(ok(null))
 
@@ -53,38 +41,27 @@ app.post('/webhooks/whatsapp', async (c) => {
   let session: Session = JSON.parse(await c.env.AAF_KV.get(sessionKey) ?? 'null') ?? { agentSlug: DEFAULT_AGENT }
 
   try {
-    // ── Built-in commands ────────────────────────────────────────────────────
     const cmd = text.trim().toLowerCase().split(' ')[0]
 
     if (cmd === '/help') {
       await sendTextMessage(phoneNumberId, from,
-        `*Taji Help*\n\n/reset — Clear conversation\n/taji — Document assistant\n/elim — Education assistant\n/help — This menu`,
+        `*Help*\n\n/reset — Clear conversation\n/help — This menu`,
         c.env.WHATSAPP_TOKEN)
       return c.json(ok(null))
     }
 
-    if (cmd === '/taji' || cmd === '/elim') {
-      session.agentSlug = cmd === '/elim' ? 'elim' : 'taji'
-      await c.env.AAF_KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 86400 * 30 })
-      // Reset machine context for new agent
-      await resetMachine(c.env, from, session.agentSlug)
-      const name = session.agentSlug === 'elim' ? 'Elim (CBC education)' : 'Taji (document assistant)'
-      await sendTextMessage(phoneNumberId, from, `✅ Switched to *${name}*. Send anything to begin.`, c.env.WHATSAPP_TOKEN)
-      return c.json(ok(null))
-    }
-
     if (cmd === '/reset') {
-      await resetMachine(c.env, from, session.agentSlug)
+      await resetMachine(c.env, from, session.agentSlug ?? DEFAULT_AGENT)
       await sendTextMessage(phoneNumberId, from, `🔄 Conversation reset. Send anything to start fresh.`, c.env.WHATSAPP_TOKEN)
       return c.json(ok(null))
     }
 
-    // ── Route through ConversationMachine ────────────────────────────────────
+    const agentSlug = session.agentSlug ?? DEFAULT_AGENT
     const res = await c.env.API_GATEWAY.fetch(
       new Request('https://internal/api/v1/machine/advance', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Internal': 'aaf-whatsapp', 'X-Channel': 'whatsapp' },
-        body: JSON.stringify({ agentSlug: session.agentSlug, userId: from, channel: 'whatsapp', message: text }),
+        body: JSON.stringify({ agentSlug, userId: from, channel: 'whatsapp', message: text }),
       })
     )
 
@@ -97,9 +74,8 @@ app.post('/webhooks/whatsapp', async (c) => {
       for (const chunk of splitMessage(reply)) {
         await sendTextMessage(phoneNumberId, from, chunk, c.env.WHATSAPP_TOKEN)
       }
-      log.info({ from, agentSlug: session.agentSlug, stage: data?.data?.stage }, 'wa:out')
+      log.info({ from, agentSlug, stage: data?.data?.stage }, 'wa:out')
     }
-
   } catch (e) {
     log.error({ err: e, from }, 'wa:error')
     await sendTextMessage(phoneNumberId, from, 'Something went wrong. Please try again shortly.', c.env.WHATSAPP_TOKEN).catch(() => {})
@@ -108,11 +84,9 @@ app.post('/webhooks/whatsapp', async (c) => {
   return c.json(ok(null))
 })
 
-// ─── Health ───────────────────────────────────────────────────────────────────
 app.get('/health', (c) => c.json(ok({ status: 'ok', service: 'aaf-whatsapp', timestamp: new Date().toISOString() })))
 app.onError((e, c) => { createLogger(c.env).error({ err: e }, 'wa:unhandled'); return c.json(err('Internal server error'), 500) })
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 async function resetMachine(env: Env, userId: string, agentSlug: string): Promise<void> {
   await env.API_GATEWAY.fetch(
     new Request(`https://internal/api/v1/machine/context/${encodeURIComponent(userId)}/${agentSlug}`, {

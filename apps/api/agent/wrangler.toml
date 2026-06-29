@@ -24,18 +24,13 @@ bucket_name = "platform-docs"
 [ai]
 binding = "AI"
 
-# ── Durable Objects (Cloudflare Agents SDK) ───────────────────────────────────
 [[durable_objects.bindings]]
-name       = "TajiAgent"
-class_name = "TajiAgent"
-
-[[durable_objects.bindings]]
-name       = "ElimAgent"
-class_name = "ElimAgent"
+name       = "AGENT_DO"
+class_name = "AgentWorker"
 
 [[migrations]]
 tag                = "v1"
-new_sqlite_classes = ["TajiAgent", "ElimAgent"]
+new_sqlite_classes = ["AgentWorker"]
 
 [[services]]
 binding = "DOCGEN_WORKER"
@@ -44,5 +39,3 @@ service = "api-docgen"
 [[services]]
 binding = "PAYMENTS_WORKER"
 service = "api-payments"
-
-# Secrets: OPENROUTER_API_KEY, JWT_SECRET
