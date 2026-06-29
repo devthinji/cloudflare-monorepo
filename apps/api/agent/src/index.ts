@@ -1,6 +1,5 @@
 import { Hono }              from 'hono'
 import { routeAgentRequest } from 'agents'
-import { honoAgents }        from 'hono-agents'
 import { rateLimiter }       from 'hono-rate-limiter'
 import { eq, desc }          from 'drizzle-orm'
 import { createDb, agents, conversations, messages, users } from './db'
@@ -15,9 +14,6 @@ export { TajiAgent, ElimAgent }
 const app = new Hono<{ Bindings: AgentWorkerEnv }>()
 
 app.use('*', rateLimiter({ windowMs: 60_000, limit: 120, standardHeaders: 'draft-6', keyGenerator: (c) => c.req.header('CF-Connecting-IP') ?? 'unknown' }))
-
-// Agents SDK routing — WebSockets + HTTP to Durable Objects at /agents/*
-app.use('/agents/*', honoAgents({ agents: { taji: TajiAgent, elim: ElimAgent } }))
 
 app.get('/health', (c) => c.json(ok({ status: 'ok', service: 'api-agent', timestamp: now() })))
 

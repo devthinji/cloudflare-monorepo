@@ -1,0 +1,7 @@
+# ─── Secrets ───────────────────────────────────────────────────────────────────
+# Copy this file to .dev.vars and fill in your values.
+
+GROQ_API_KEY="gsk_your_groq_api_key_here"
+
+# Bindings from wrangler.toml (resolved automatically):
+#   DB (D1), DOCS_BUCKET (R2), AI

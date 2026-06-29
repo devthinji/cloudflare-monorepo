@@ -4,3 +4,8 @@ packages:
   - 'apps/web/dashboard'
   - 'apps/web/site'
   - 'packages/*'
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+registrySupportsTimeField: true

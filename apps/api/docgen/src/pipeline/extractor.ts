@@ -17,9 +17,9 @@ export async function extractPlaceholders(docxBuffer: ArrayBuffer): Promise<stri
   // .docx is a ZIP — we need word/document.xml
   // We use a simple regex on the raw binary text since we cannot unzip in Workers without a lib
   // Pattern: {word} or {multi_word} — standard docxtemplater syntax
-  const text    = new TextDecoder('utf-8', { fatal: false }).decode(docxBuffer)
+  const text    = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(docxBuffer)
   const matches = [...text.matchAll(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g)]
-  const keys    = [...new Set(matches.map(m => m[1]))]
+  const keys    = [...new Set(matches.map(m => m[1]).filter((k): k is string => !!k))]
   return keys
 }
 
@@ -102,7 +102,7 @@ export async function generateVisualDescription(
   templateName: string,
   documentType: string,
 ): Promise<string> {
-  const rawText = new TextDecoder('utf-8', { fatal: false }).decode(docxBuffer)
+  const rawText = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(docxBuffer)
 
   // Extract readable text from XML — strip tags
   const readable = rawText

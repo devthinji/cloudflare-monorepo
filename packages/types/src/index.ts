@@ -30,6 +30,9 @@ export interface AgentWorkerEnv extends BaseWorkerEnv {
   JWT_SECRET:      string
   DOCGEN_WORKER:   Fetcher
   PAYMENTS_WORKER: Fetcher
+  AI:              unknown
+  TajiAgent:       DurableObjectNamespace
+  ElimAgent:       DurableObjectNamespace
 }
 
 export interface DocgenWorkerEnv extends BaseWorkerEnv {

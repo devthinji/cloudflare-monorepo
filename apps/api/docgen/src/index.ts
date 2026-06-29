@@ -277,7 +277,7 @@ app.post('/api/v1/docgen/render', async (c) => {
     // Fill placeholders using docxtemplater pattern
     // Simple regex replace for {key} → value
     // Full docxtemplater would be used here in production
-    let docxText = new TextDecoder('utf-8', { fatal: false }).decode(docxBuffer)
+    let docxText = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(docxBuffer)
     for (const [key, value] of Object.entries(body.fieldValues)) {
       docxText = docxText.replaceAll(`{${key}}`, String(value ?? ''))
     }

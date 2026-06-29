@@ -15,6 +15,7 @@
     "hono": "^4.4.0",
     "hono-rate-limiter": "^0.5.3",
     "pino": "^9.2.0",
+    "docx": "^8.5.0",
     "docxtemplater": "^3.47.0",
     "pizzip": "^3.1.4"
   },

@@ -1,0 +1,12 @@
+# ─── Secrets ───────────────────────────────────────────────────────────────────
+# Copy this file to .dev.vars and fill in your values.
+# .dev.vars is gitignored — keep it out of version control.
+
+GROQ_API_KEY="gsk_your_groq_api_key_here"
+JWT_SECRET="a_random_secret_key_at_least_32_chars_long"
+
+# The following bindings are configured in wrangler.toml and
+# resolved automatically by wrangler dev / wrangler deploy:
+#   DB (D1), AGENT_KV (KV), DOCS_BUCKET (R2), AI
+#   TajiAgent (DO), ElimAgent (DO)
+#   DOCGEN_WORKER, PAYMENTS_WORKER (service bindings)

@@ -1,0 +1,8 @@
+# ─── Secrets ───────────────────────────────────────────────────────────────────
+# Copy this file to .dev.vars and fill in your values.
+
+TELEGRAM_BOT_TOKEN="your_bot_token_here"
+TELEGRAM_WEBHOOK_SECRET="your_webhook_secret_here"
+
+# Bindings from wrangler.toml (resolved automatically):
+#   AAF_KV (KV), API_GATEWAY (service binding)

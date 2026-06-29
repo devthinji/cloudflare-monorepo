@@ -17,7 +17,7 @@ preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
 [[d1_databases]]
 binding       = "DB"
 database_name = "platform-db"
-database_id   = "REPLACE_WITH_D1_ID"
+database_id   = "11909a8f-d177-4a08-a48a-fef7ce0c2df3"
 
 # ── Service Bindings ─────────────────────────────────────────────────────────
 [[services]]

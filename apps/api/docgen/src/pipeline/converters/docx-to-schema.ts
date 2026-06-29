@@ -19,7 +19,7 @@ export async function docxToSchema(
 
   // Extract {placeholder} keys from raw docx bytes
   // docx is a ZIP — word/document.xml contains the text with placeholders
-  const text  = new TextDecoder('utf-8', { fatal: false }).decode(file)
+  const text  = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(file)
   const matches = [...text.matchAll(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g)]
   const keys    = [...new Set(matches.map(m => m[1]!))]
 

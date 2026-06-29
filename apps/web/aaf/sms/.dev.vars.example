@@ -1,0 +1,9 @@
+# ─── Secrets ───────────────────────────────────────────────────────────────────
+# Copy this file to .dev.vars and fill in your values.
+
+AFRICASTALKING_API_KEY="your_africastalking_api_key"
+AFRICASTALKING_USERNAME="your_africastalking_username"
+AFRICASTALKING_SENDER_ID="your_sender_id"
+
+# Bindings from wrangler.toml (resolved automatically):
+#   AAF_KV (KV), API_GATEWAY (service binding)

@@ -17,7 +17,7 @@ export async function docxToMarkdown(
   const templateName = (options?.templateName as string) ?? 'Document'
 
   // Strip XML tags → readable text
-  const raw      = new TextDecoder('utf-8', { fatal: false }).decode(file)
+  const raw      = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(file)
   const stripped = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 4000).trim()
 
   try {

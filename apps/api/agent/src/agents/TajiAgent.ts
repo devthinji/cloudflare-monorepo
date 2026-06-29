@@ -56,6 +56,12 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
     messages: [], collectionState: null, pendingPayment: null, agentConfig: null,
   }
 
+  // ── Partial state update helper ──────────────────────────────────────────
+
+  private setPartialState(partial: Partial<TajiState>) {
+    this.setPartialState({ ...this.state, ...partial })
+  }
+
   // ── HTTP handler — service binding calls ──────────────────────────────────
 
   async onRequest(request: Request): Promise<Response> {
@@ -71,18 +77,18 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
       }
 
       if (payload.userId && !this.state.userId) {
-        this.setState({ userId: payload.userId, agentSlug: payload.agentSlug ?? 'taji', channel: payload.channel ?? 'whatsapp' })
+        this.setPartialState({ userId: payload.userId, agentSlug: payload.agentSlug ?? 'taji', channel: payload.channel ?? 'whatsapp' })
       }
 
       let reply = ''
 
       if (payload.type === 'reset') {
-        this.setState({ messages: [], collectionState: null, pendingPayment: null })
+        this.setPartialState({ messages: [], collectionState: null, pendingPayment: null })
         reply = '✅ Conversation reset. How can I help you?'
 
       } else if (payload.type === 'start_interview' && payload.skuSchema) {
-        const state = InterviewEngine.start(payload.skuSchema, payload.userId ?? '', payload.agentSlug ?? 'taji', this.id.toString())
-        this.setState({ collectionState: state })
+        const state = InterviewEngine.start(payload.skuSchema, payload.userId ?? '', payload.agentSlug ?? 'taji', this.ctx.id.toString())
+        this.setPartialState({ collectionState: state })
         reply = InterviewEngine.openingMessage(state)
         this.addMsg('assistant', reply)
 
@@ -105,8 +111,8 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
   async onMessage(conn: unknown, raw: string) {
     try {
       const p = JSON.parse(raw) as { type: string; message?: string; userId?: string; agentSlug?: string; channel?: string; skuSchema?: SKUSchema }
-      if (p.userId && !this.state.userId) this.setState({ userId: p.userId, agentSlug: p.agentSlug ?? 'taji', channel: p.channel ?? 'whatsapp' })
-      if (p.type === 'reset') { this.setState({ messages: [], collectionState: null, pendingPayment: null }); this.ws(conn, '✅ Reset.'); return }
+      if (p.userId && !this.state.userId) this.setPartialState({ userId: p.userId, agentSlug: p.agentSlug ?? 'taji', channel: p.channel ?? 'whatsapp' })
+      if (p.type === 'reset') { this.setPartialState({ messages: [], collectionState: null, pendingPayment: null }); this.ws(conn, '✅ Reset.'); return }
       if (p.type === 'chat' && p.message) { const r = await this.processChat(p.message); this.ws(conn, r) }
     } catch { this.ws(conn, 'Sorry, something went wrong.') }
   }
@@ -122,7 +128,7 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
       if (status) return status
       // Payment still pending — check if user wants to cancel
       if (/cancel|hapana|no|quit/i.test(message)) {
-        this.setState({ pendingPayment: null })
+        this.setPartialState({ pendingPayment: null })
         return '❌ Payment cancelled. Type anything to start a new document.'
       }
       return `⏳ Still waiting for your M-Pesa payment confirmation...\n\nCheck your phone and enter your PIN if prompted.\n\nType *cancel* to stop.`
@@ -131,12 +137,12 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
     // ── Interview mode ───────────────────────────────────────────────────────
     if (this.state.collectionState && this.state.collectionState.status !== 'done') {
       const result = InterviewEngine.advance(this.state.collectionState, message)
-      this.setState({ collectionState: result.state })
+      this.setPartialState({ collectionState: result.state })
 
       if (result.readyToRender) {
         // Interview complete — initiate payment before rendering
         const payReply = await this.initiatePayment(result.docxData ?? {})
-        this.setState({ collectionState: null })
+        this.setPartialState({ collectionState: null })
         return payReply
       }
 
@@ -182,7 +188,7 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
       }
 
       // Save pending payment state
-      this.setState({
+      this.setPartialState({
         pendingPayment: {
           txId:              data.data.transactionId,
           checkoutRequestId: data.data.checkoutRequestId,
@@ -208,7 +214,7 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
     if (!p) return ''
 
     if (p.pollCount >= MAX_POLLS) {
-      this.setState({ pendingPayment: null })
+      this.setPartialState({ pendingPayment: null })
       return '⏰ Payment timed out. Your document data is saved — send *retry* to try again.'
     }
 
@@ -221,14 +227,14 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
       const data = await res.json() as { success: boolean; data?: { ResultCode: string; ResultDesc: string } }
 
       if (!data.success) {
-        this.setState({ pendingPayment: { ...p, pollCount: p.pollCount + 1 } })
+        this.setPartialState({ pendingPayment: { ...p, pollCount: p.pollCount + 1 } })
         return ''   // still pending — no message to send
       }
 
       const code = data.data?.ResultCode
       if (code === '0') {
         // ✅ Payment confirmed — render document
-        this.setState({ pendingPayment: null })
+        this.setPartialState({ pendingPayment: null })
         const renderReply = await this.triggerRender(p.docxData, p.templateId)
         this.addMsg('assistant', renderReply)
         return renderReply
@@ -236,22 +242,22 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
 
       if (code === '1032') {
         // User cancelled on phone
-        this.setState({ pendingPayment: null })
+        this.setPartialState({ pendingPayment: null })
         return '❌ Payment was cancelled. Send *retry* if you\'d like to try again.'
       }
 
       if (code === '1037') {
         // Timed out on Safaricom side
-        this.setState({ pendingPayment: null })
+        this.setPartialState({ pendingPayment: null })
         return '⏰ Payment timed out on M-Pesa. Send *retry* to try again.'
       }
 
       // Still pending
-      this.setState({ pendingPayment: { ...p, pollCount: p.pollCount + 1 } })
+      this.setPartialState({ pendingPayment: { ...p, pollCount: p.pollCount + 1 } })
       return ''
 
     } catch {
-      this.setState({ pendingPayment: { ...p, pollCount: p.pollCount + 1 } })
+      this.setPartialState({ pendingPayment: { ...p, pollCount: p.pollCount + 1 } })
       return ''
     }
   }
@@ -317,7 +323,7 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
 
   private addMsg(role: 'user' | 'assistant', content: string) {
     const msgs = [...this.state.messages, { role, content, ts: now() }]
-    this.setState({ messages: msgs.slice(-50) })
+    this.setPartialState({ messages: msgs.slice(-50) })
   }
 
   private ws(conn: unknown, msg: string) {
