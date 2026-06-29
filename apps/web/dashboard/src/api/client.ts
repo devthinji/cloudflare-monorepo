@@ -156,6 +156,29 @@ export const skusApi = {
   pipelines: () => request<{ converters: { input: string; output: string }[] }>('GET', '/api/v1/docgen/pipelines'),
 }
 
+
+// ── Users ──────────────────────────────────────────────────────────────────────
+
+export interface User {
+  id:         string
+  name:       string
+  phone?:     string
+  channel:    string
+  agentSlug?: string
+  registered: boolean
+  blocked:    boolean
+  metadata?:  Record<string, unknown>
+  createdAt:  string
+  updatedAt:  string
+}
+
+export const usersApi = {
+  list:   ()                                      => request<User[]>('GET',   '/api/v1/agent/users'),
+  get:    (userId: string)                        => request<User>  ('GET',   `/api/v1/agent/users/${encodeURIComponent(userId)}`),
+  patch:  (userId: string, data: Partial<Pick<User, 'name' | 'phone' | 'agentSlug' | 'blocked' | 'metadata'>>) =>
+                                                     request<{ updated: boolean }>('PATCH', `/api/v1/agent/users/${encodeURIComponent(userId)}`, data),
+}
+
 // Legacy alias so old imports don't break
 export type Template = SKU
 export const templatesApi = skusApi
