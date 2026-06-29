@@ -1,14 +1,11 @@
 // ─── AAF WhatsApp Worker ───────────────────────────────────────────────────────
 //
-// Message flow:
-//   WhatsApp → aaf-whatsapp → api-gateway → api-agent (TajiAgent / ElimAgent)
+// All messages go through the ConversationMachine in api-gateway:
+//   WhatsApp → aaf-whatsapp → api-gateway /api/v1/machine/advance
 //
-// Payment flow:
-//   Interview done → TajiAgent initiates STK push → returns payment prompt
-//   User pays → M-Pesa callback → payments worker updates DB
-//   Next user message → TajiAgent polls payment status → renders doc on success
+// Machine drives: Identify → Auth → Collect/Fill/Deliver → Farewell
 //
-// Commands: /taji  /elim  /reset  /help
+// Commands: /reset  /help  /taji  /elim
 
 import { Hono } from 'hono'
 import { ok, err } from '@repo/utils'
@@ -25,29 +22,12 @@ interface Env {
   API_GATEWAY:              Fetcher
 }
 
-interface Session {
-  agentSlug: string
-  lang?:     'en' | 'sw'
-}
-
+interface Session { agentSlug: string }
 const DEFAULT_AGENT = 'taji'
-
-// ─── Commands ─────────────────────────────────────────────────────────────────
-
-const COMMANDS: Record<string, (s: Session) => { reply: string; session: Session; resetAgent?: boolean }> = {
-  '/taji':  (s) => ({ reply: '✅ Switched to *Taji* — your document assistant.\n\nWhat document can I help you create today?', session: { ...s, agentSlug: 'taji' } }),
-  '/elim':  (s) => ({ reply: '✅ Switched to *Elim* — your CBC education assistant.\n\nWhat subject or topic can I help with?', session: { ...s, agentSlug: 'elim' } }),
-  '/reset': (s) => ({ reply: '🔄 Conversation reset. How can I help you?', session: { agentSlug: s.agentSlug }, resetAgent: true }),
-  '/help':  (s) => ({
-    reply: `*Taji Help Menu*\n\n/taji — Document assistant (CVs, letters, NDAs)\n/elim — CBC education assistant\n/reset — Clear conversation & payment\n/help — Show this menu\n\nCurrent: *${s.agentSlug}*\n\nPayments via M-Pesa 💚`,
-    session: s,
-  }),
-}
 
 const app = new Hono<{ Bindings: Env }>()
 
 // ─── Webhook verification ─────────────────────────────────────────────────────
-
 app.get('/webhooks/whatsapp', (c) => {
   const mode      = c.req.query('hub.mode')
   const token     = c.req.query('hub.verify_token')
@@ -57,12 +37,10 @@ app.get('/webhooks/whatsapp', (c) => {
   return c.text('Forbidden', 403)
 })
 
-// ─── Incoming WhatsApp message ────────────────────────────────────────────────
-
+// ─── Incoming message ─────────────────────────────────────────────────────────
 app.post('/webhooks/whatsapp', async (c) => {
   const log     = createLogger(c.env)
   const payload = await c.req.json() as WaWebhookPayload
-
   if (payload.object !== 'whatsapp_business_account') return c.json(ok(null))
 
   const incoming = parseIncomingMessage(payload)
@@ -71,35 +49,55 @@ app.post('/webhooks/whatsapp', async (c) => {
   const { from, text, phoneNumberId } = incoming
   log.info({ from, preview: text.slice(0, 80) }, 'wa:in')
 
-  // Load session
   const sessionKey = `wa:session:${from}`
   let session: Session = JSON.parse(await c.env.AAF_KV.get(sessionKey) ?? 'null') ?? { agentSlug: DEFAULT_AGENT }
 
   try {
-    // Handle commands
+    // ── Built-in commands ────────────────────────────────────────────────────
     const cmd = text.trim().toLowerCase().split(' ')[0]
-    if (cmd in COMMANDS) {
-      const result = COMMANDS[cmd](session)
-      session = result.session
-      await saveSession(c.env, sessionKey, session)
 
-      if (result.resetAgent) {
-        await callAgent(c.env, session.agentSlug, from, 'reset')
-      }
-
-      await sendTextMessage(phoneNumberId, from, result.reply, c.env.WHATSAPP_TOKEN)
+    if (cmd === '/help') {
+      await sendTextMessage(phoneNumberId, from,
+        `*Taji Help*\n\n/reset — Clear conversation\n/taji — Document assistant\n/elim — Education assistant\n/help — This menu`,
+        c.env.WHATSAPP_TOKEN)
       return c.json(ok(null))
     }
 
-    // Route to agent
-    const reply = await callAgent(c.env, session.agentSlug, from, 'chat', text)
-    await saveSession(c.env, sessionKey, session)
+    if (cmd === '/taji' || cmd === '/elim') {
+      session.agentSlug = cmd === '/elim' ? 'elim' : 'taji'
+      await c.env.AAF_KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 86400 * 30 })
+      // Reset machine context for new agent
+      await resetMachine(c.env, from, session.agentSlug)
+      const name = session.agentSlug === 'elim' ? 'Elim (CBC education)' : 'Taji (document assistant)'
+      await sendTextMessage(phoneNumberId, from, `✅ Switched to *${name}*. Send anything to begin.`, c.env.WHATSAPP_TOKEN)
+      return c.json(ok(null))
+    }
+
+    if (cmd === '/reset') {
+      await resetMachine(c.env, from, session.agentSlug)
+      await sendTextMessage(phoneNumberId, from, `🔄 Conversation reset. Send anything to start fresh.`, c.env.WHATSAPP_TOKEN)
+      return c.json(ok(null))
+    }
+
+    // ── Route through ConversationMachine ────────────────────────────────────
+    const res = await c.env.API_GATEWAY.fetch(
+      new Request('https://internal/api/v1/machine/advance', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal': 'aaf-whatsapp', 'X-Channel': 'whatsapp' },
+        body: JSON.stringify({ agentSlug: session.agentSlug, userId: from, channel: 'whatsapp', message: text }),
+      })
+    )
+
+    const data = await res.json() as { success: boolean; data?: { reply: string; stage: string; done: boolean } }
+    const reply = data?.data?.reply ?? ''
+
+    await c.env.AAF_KV.put(sessionKey, JSON.stringify(session), { expirationTtl: 86400 * 30 })
 
     if (reply) {
       for (const chunk of splitMessage(reply)) {
         await sendTextMessage(phoneNumberId, from, chunk, c.env.WHATSAPP_TOKEN)
       }
-      log.info({ from, agentSlug: session.agentSlug }, 'wa:out')
+      log.info({ from, agentSlug: session.agentSlug, stage: data?.data?.stage }, 'wa:out')
     }
 
   } catch (e) {
@@ -111,35 +109,16 @@ app.post('/webhooks/whatsapp', async (c) => {
 })
 
 // ─── Health ───────────────────────────────────────────────────────────────────
-
-app.get('/health', (c) =>
-  c.json(ok({ status: 'ok', service: 'aaf-whatsapp', timestamp: new Date().toISOString() }))
-)
-
-app.onError((e, c) => {
-  createLogger(c.env).error({ err: e }, 'wa:unhandled')
-  return c.json(err('Internal server error'), 500)
-})
+app.get('/health', (c) => c.json(ok({ status: 'ok', service: 'aaf-whatsapp', timestamp: new Date().toISOString() })))
+app.onError((e, c) => { createLogger(c.env).error({ err: e }, 'wa:unhandled'); return c.json(err('Internal server error'), 500) })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function callAgent(env: Env, agentSlug: string, userId: string, type: 'chat' | 'reset' | 'check_payment', message?: string): Promise<string> {
-  const body: Record<string, string> = { agentSlug, userId, channel: 'whatsapp', type }
-  if (message) body.message = message
-
-  const res = await env.API_GATEWAY.fetch(
-    new Request('https://internal/api/v1/agent/chat', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-User-Id': userId, 'X-Channel': 'whatsapp' },
-      body:    JSON.stringify(body),
+async function resetMachine(env: Env, userId: string, agentSlug: string): Promise<void> {
+  await env.API_GATEWAY.fetch(
+    new Request(`https://internal/api/v1/machine/context/${encodeURIComponent(userId)}/${agentSlug}`, {
+      method: 'DELETE', headers: { 'X-Internal': 'aaf-whatsapp' },
     })
   )
-  const data = await res.json() as { success: boolean; data?: { reply: string } }
-  return data?.data?.reply ?? ''
-}
-
-async function saveSession(env: Env, key: string, session: Session): Promise<void> {
-  await env.AAF_KV.put(key, JSON.stringify(session), { expirationTtl: 86400 * 30 })
 }
 
 function splitMessage(text: string, max = 4000): string[] {

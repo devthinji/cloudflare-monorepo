@@ -13,6 +13,7 @@ import { authRoutes }     from './routes/auth'
 import { agentRoutes }    from './routes/agent'
 import { docgenRoutes }   from './routes/docgen'
 import { paymentsRoutes } from './routes/payments'
+import { machineRoutes }  from './routes/machine'
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,10 @@ app.route('/api/v1/auth',      authRoutes)
 app.route('/webhooks',         paymentsRoutes)
 
 // ─── Protected routes (JWT required) ─────────────────────────────────────────
+
+// Machine routes — called by AAF workers via service binding (X-Internal header)
+// No JWT required for internal service calls; still rate-limited
+app.route('/api/v1/machine',  machineRoutes)
 
 app.use('/api/v1/agent/*',    jwtMiddleware)
 app.use('/api/v1/docgen/*',   jwtMiddleware)
