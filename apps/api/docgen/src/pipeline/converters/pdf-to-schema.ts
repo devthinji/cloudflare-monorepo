@@ -27,6 +27,6 @@ export async function pdfToSchema(
     return { error: 'No {placeholders} found in this PDF.' }
   }
 
-  const fields = await inferFieldSchema(env.GROQ_API_KEY, keys, documentType, text.slice(0, 500), templateName)
+  const fields = await inferFieldSchema(env, keys, documentType, text.slice(0, 500), templateName)
   return { placeholder_schema: fields }
 }

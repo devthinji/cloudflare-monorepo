@@ -135,9 +135,8 @@ app.post('/api/v1/templates/upload', async (c) => {
     log.info({ id, name, documentType }, 'template:upload:stored')
 
     // 3. Run AI extraction pipeline (async — don't block upload response)
-    const groqKey = c.env.GROQ_API_KEY
     c.executionCtx.waitUntil(
-      runExtractionPipeline(groqKey, docxBuffer, id, name, documentType, tier ?? undefined)
+      runExtractionPipeline(c.env, docxBuffer, id, name, documentType, tier ?? undefined)
         .then(async (result) => {
           await db.update(templates).set({
             description:      result.description,

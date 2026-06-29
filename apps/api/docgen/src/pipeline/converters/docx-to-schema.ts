@@ -29,8 +29,8 @@ export async function docxToSchema(
 
   // AI inference — labels, types, order
   const [description, fields] = await Promise.all([
-    generateVisualDescription(env.GROQ_API_KEY, file, templateName, documentType),
-    inferFieldSchema(env.GROQ_API_KEY, keys, documentType, '', templateName),
+    generateVisualDescription(env, file, templateName, documentType),
+    inferFieldSchema(env, keys, documentType, '', templateName),
   ])
 
   return { placeholder_schema: fields, description }

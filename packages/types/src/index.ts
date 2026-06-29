@@ -26,19 +26,19 @@ export interface AgentWorkerEnv extends BaseWorkerEnv {
   DB:              D1Database
   AGENT_KV:        KVNamespace
   DOCS_BUCKET:     R2Bucket
-  GROQ_API_KEY:    string
-  JWT_SECRET:      string
-  DOCGEN_WORKER:   Fetcher
-  PAYMENTS_WORKER: Fetcher
-  AI:              unknown
-  TajiAgent:       DurableObjectNamespace
-  ElimAgent:       DurableObjectNamespace
+  OPENROUTER_API_KEY: string
+  JWT_SECRET:         string
+  DOCGEN_WORKER:      Fetcher
+  PAYMENTS_WORKER:    Fetcher
+  AI:                 unknown
+  TajiAgent:          DurableObjectNamespace
+  ElimAgent:          DurableObjectNamespace
 }
 
 export interface DocgenWorkerEnv extends BaseWorkerEnv {
   DB:                    D1Database
   DOCS_BUCKET:           R2Bucket
-  GROQ_API_KEY:          string
+  OPENROUTER_API_KEY:    string
   AI:                    unknown   // Cloudflare Workers AI binding
   DOCS_BUCKET_PUBLIC_URL?: string  // CDN base URL if bucket is public
 }
@@ -72,7 +72,7 @@ export interface Agent {
   description?:  string
   systemPrompt:  string
   toolsEnabled:  string[]
-  modelProvider: 'groq' | 'cloudflare-ai' | 'openai'
+  modelProvider: 'openrouter' | 'workers-ai'
   modelId:       string
   channel:       'whatsapp' | 'telegram' | 'sms' | 'ussd' | 'dashboard'
   channelConfig?: Record<string, unknown>

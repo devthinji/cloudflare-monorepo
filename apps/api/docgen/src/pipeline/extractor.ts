@@ -1,22 +1,10 @@
-// ─── AI Extraction Pipeline ───────────────────────────────────────────────────
-//
-// Takes an uploaded .docx from R2, extracts:
-//   1. Visual description (via vision model on page image)
-//   2. Placeholder keys ({like_this} in docx XML)
-//   3. Builds a FieldSchema[] with AI-inferred labels, types, order
-//
-// All AI calls go to Groq.
-
 import type { FieldSchema, SKUSchema } from './field-schema'
-
-const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions'
+import { call } from '@repo/llm-service'
+import type { DocgenWorkerEnv } from '@repo/types'
 
 // ── Step 1: Extract raw {placeholders} from docx XML ─────────────────────────
 
 export async function extractPlaceholders(docxBuffer: ArrayBuffer): Promise<string[]> {
-  // .docx is a ZIP — we need word/document.xml
-  // We use a simple regex on the raw binary text since we cannot unzip in Workers without a lib
-  // Pattern: {word} or {multi_word} — standard docxtemplater syntax
   const text    = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(docxBuffer)
   const matches = [...text.matchAll(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g)]
   const keys    = [...new Set(matches.map(m => m[1]).filter((k): k is string => !!k))]
@@ -26,7 +14,7 @@ export async function extractPlaceholders(docxBuffer: ArrayBuffer): Promise<stri
 // ── Step 2: AI — infer field schema from placeholder keys + document type ─────
 
 export async function inferFieldSchema(
-  groqApiKey:    string,
+  env:          DocgenWorkerEnv,
   placeholders:  string[],
   documentType:  string,
   visualDesc:    string,
@@ -54,7 +42,7 @@ For each placeholder, return a JSON array of FieldSchema objects. Each object mu
 
 Rules:
 - Put name/identity fields first (order 1-3)
-- Contact fields second (order 4-6)  
+- Contact fields second (order 4-6)
 - Content fields last (order 7+)
 - Use "repeatable" for experience, education, references
 - Use "choice" for fields with a known fixed set of options
@@ -66,45 +54,36 @@ Rules:
 
 Return ONLY the JSON array. No explanation.`
 
-  const res = await fetch(GROQ_API, {
-    method:  'POST',
-    headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model:       'llama-3.3-70b-versatile',
-      messages:    [{ role: 'user', content: prompt }],
-      max_tokens:  2048,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-    }),
-  })
-
-  if (!res.ok) throw new Error(`Groq schema inference failed: ${res.status}`)
-
-  const data   = await res.json() as { choices: { message: { content: string } }[] }
-  const raw    = data.choices[0]?.message.content ?? '[]'
-
-  // Groq returns json_object so unwrap if needed
   try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : (parsed.fields ?? parsed.schema ?? [])
+    const response = await call({
+      model: 'openai/gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 2048,
+      temperature: 0.2,
+    }, env)
+
+    const raw = response.content
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : (parsed.fields ?? parsed.schema ?? [])
+    } catch {
+      return []
+    }
   } catch {
     return []
   }
 }
 
 // ── Step 3: AI — generate visual description from docx text content ───────────
-// We can't render a real image in Workers without a headless browser,
-// so we extract raw text from the docx and ask the LLM to describe it.
 
 export async function generateVisualDescription(
-  groqApiKey:   string,
+  env:          DocgenWorkerEnv,
   docxBuffer:   ArrayBuffer,
   templateName: string,
   documentType: string,
 ): Promise<string> {
   const rawText = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(docxBuffer)
 
-  // Extract readable text from XML — strip tags
   const readable = rawText
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
@@ -118,20 +97,17 @@ ${readable}
 
 Return only the description, no explanation.`
 
-  const res = await fetch(GROQ_API, {
-    method:  'POST',
-    headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model:       'llama-3.3-70b-versatile',
-      messages:    [{ role: 'user', content: prompt }],
-      max_tokens:  256,
+  try {
+    const response = await call({
+      model: 'openai/gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 256,
       temperature: 0.3,
-    }),
-  })
-
-  if (!res.ok) return `A professional ${documentType} template.`
-  const data = await res.json() as { choices: { message: { content: string } }[] }
-  return data.choices[0]?.message.content?.trim() ?? `A professional ${documentType} template.`
+    }, env)
+    return response.content.trim()
+  } catch {
+    return `A professional ${documentType} template.`
+  }
 }
 
 // ── Step 4: Generate confirm prompt for this SKU ──────────────────────────────
@@ -150,21 +126,19 @@ export interface ExtractionResult {
 }
 
 export async function runExtractionPipeline(
-  groqApiKey:   string,
+  env:          DocgenWorkerEnv,
   docxBuffer:   ArrayBuffer,
   templateId:   string,
   templateName: string,
   documentType: string,
   tier?:        string,
 ): Promise<ExtractionResult> {
-  // Run placeholder extraction + visual description in parallel
   const [placeholders, description] = await Promise.all([
     extractPlaceholders(docxBuffer),
-    generateVisualDescription(groqApiKey, docxBuffer, templateName, documentType),
+    generateVisualDescription(env, docxBuffer, templateName, documentType),
   ])
 
-  // Then infer field schema (needs both)
-  const fieldSchema    = await inferFieldSchema(groqApiKey, placeholders, documentType, description, templateName)
+  const fieldSchema    = await inferFieldSchema(env, placeholders, documentType, description, templateName)
   const confirmPrompt  = buildConfirmPrompt(templateName, documentType)
 
   const skuSchema: SKUSchema = {

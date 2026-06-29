@@ -5,10 +5,10 @@ import { agentsApi, type Agent, type AgentCreateInput } from '../../api/client'
 // ── Model options ─────────────────────────────────────────────────────────────
 
 const MODEL_OPTIONS = [
-  { provider: 'groq',          id: 'llama-3.3-70b-versatile' },
-  { provider: 'groq',          id: 'mixtral-8x7b-32768' },
-  { provider: 'cloudflare-ai', id: '@cf/meta/llama-3.1-8b-instruct' },
-  { provider: 'openai',        id: 'gpt-4o-mini' },
+  { provider: 'openrouter', id: 'openai/gpt-4o-mini' },
+  { provider: 'openrouter', id: 'openai/gpt-4o' },
+  { provider: 'openrouter', id: 'anthropic/claude-3.5-haiku' },
+  { provider: 'workers-ai', id: '@cf/meta/llama-3.1-8b-instruct' },
 ]
 
 const CHANNELS = ['whatsapp', 'telegram', 'sms', 'ussd', 'dashboard']
@@ -18,8 +18,8 @@ const EMPTY_FORM: AgentCreateInput = {
   slug:          '',
   description:   '',
   systemPrompt:  '',
-  modelProvider: 'groq',
-  modelId:       'llama-3.3-70b-versatile',
+  modelProvider: 'openrouter',
+  modelId:       'openai/gpt-4o-mini',
   channel:       'whatsapp',
   isActive:      true,
 }

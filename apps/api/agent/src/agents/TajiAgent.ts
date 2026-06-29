@@ -6,6 +6,7 @@
 import { Agent } from 'agents'
 import type { AgentWorkerEnv } from '@repo/types'
 import { now } from '@repo/utils'
+import { callWithFallback } from '@repo/llm-service'
 import { InterviewEngine } from '../pipeline/interview-engine'
 import type { CollectionState, SKUSchema } from '../pipeline/field-schema'
 
@@ -27,10 +28,9 @@ export interface TajiState {
     docxData:          Record<string, unknown>
     templateId:        string
   } | null
-  agentConfig: { systemPrompt: string; modelId: string; groqApiKey?: string } | null
+  agentConfig: { systemPrompt: string; modelId: string; openrouterApiKey?: string } | null
 }
 
-const GROQ_API    = 'https://api.groq.com/openai/v1/chat/completions'
 const MAX_HISTORY = 20
 const MAX_POLLS   = 12   // 12 × 5s = 60s max wait
 
@@ -291,32 +291,27 @@ export class TajiAgent extends Agent<AgentWorkerEnv, TajiState> {
   // ── Normal LLM chat ───────────────────────────────────────────────────────
 
   private async chat(message: string): Promise<string> {
-    const apiKey = this.state.agentConfig?.groqApiKey ?? this.env.GROQ_API_KEY
     const prompt = this.state.agentConfig?.systemPrompt ?? TAJI_SYSTEM_PROMPT
-    const model  = this.state.agentConfig?.modelId ?? 'llama-3.3-70b-versatile'
+    const model  = this.state.agentConfig?.modelId
     const hist   = this.state.messages.slice(-MAX_HISTORY).map(m => ({ role: m.role, content: m.content }))
-    try {
-      const res = await fetch(GROQ_API, {
-        method:  'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages: [{ role: 'system', content: prompt }, ...hist], max_tokens: 512, temperature: 0.7 }),
-      })
-      if (!res.ok) return this.cfAI(prompt, hist, message)
-      const d = await res.json() as { choices: { message: { content: string } }[] }
-      const r = d.choices[0]?.message.content ?? 'Sorry, I could not respond.'
-      this.addMsg('assistant', r); return r
-    } catch { return this.cfAI(prompt, hist, message) }
-  }
 
-  private async cfAI(prompt: string, hist: { role: string; content: string }[], msg: string): Promise<string> {
     try {
-      const r = await (this.env.AI as any).run('@cf/meta/llama-3.1-8b-instruct', {
-        messages: [{ role: 'system', content: prompt }, ...hist, { role: 'user', content: msg }],
-        max_tokens: 512,
-      })
-      const reply = r?.response ?? 'Sorry, I am unable to respond right now.'
-      this.addMsg('assistant', reply); return reply
-    } catch { return 'Sorry, I am unable to respond right now.' }
+      const response = await callWithFallback({
+        model: model ?? 'openai/gpt-4o-mini',
+        messages: [
+          { role: 'system', content: prompt },
+          ...hist,
+          { role: 'user', content: message },
+        ],
+        maxTokens: 512,
+        temperature: 0.7,
+      }, this.env)
+
+      this.addMsg('assistant', response.content)
+      return response.content
+    } catch {
+      return 'Sorry, I am unable to respond right now.'
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

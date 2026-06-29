@@ -9,6 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/llm-service": "workspace:*",
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
     "drizzle-orm": "^0.31.0",

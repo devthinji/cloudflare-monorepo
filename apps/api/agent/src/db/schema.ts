@@ -7,7 +7,7 @@ export const agents = sqliteTable('agents', {
   description:   text('description'),
   systemPrompt:  text('system_prompt').notNull(),
   toolsEnabled:  text('tools_enabled').notNull().default('[]'),
-  modelProvider: text('model_provider').notNull().default('groq'),
+  modelProvider: text('model_provider').notNull().default('openrouter'),
   modelId:       text('model_id').notNull().default('llama-3.3-70b-versatile'),
   channel:       text('channel').notNull().default('whatsapp'),
   channelConfig: text('channel_config'),

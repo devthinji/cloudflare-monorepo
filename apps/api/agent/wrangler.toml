@@ -45,4 +45,4 @@ service = "api-docgen"
 binding = "PAYMENTS_WORKER"
 service = "api-payments"
 
-# Secrets: GROQ_API_KEY, JWT_SECRET
+# Secrets: OPENROUTER_API_KEY, JWT_SECRET

@@ -14,8 +14,8 @@ interface Agent {
   description: string
   system_prompt: string   // Full AI persona and instructions
   tools_enabled: string[] // ["docgen", "memory", "conversation_auth"]
-  model_provider: 'groq' | 'cloudflare_ai' | 'openai'
-  model_id: string        // "llama-3.3-70b-versatile"
+  model_provider: 'openrouter' | 'workers-ai'
+  model_id: string        // "openai/gpt-4o-mini"
   channel: 'whatsapp' | 'telegram' | 'sms' | 'ussd'
   channel_config: ChannelConfig  // encrypted
   api_keys: ApiKeys              // encrypted
@@ -40,12 +40,11 @@ interface Agent {
 ## Model Providers (In Order of Priority)
 
 ```
-1. Groq          → llama-3.3-70b-versatile (fast, free tier generous)
-2. Cloudflare AI → @cf/meta/llama-3.1-8b-instruct (zero egress cost)
-3. OpenAI        → gpt-4o-mini (fallback)
+1. OpenRouter → openai/gpt-4o-mini (primary — auto-free models)
+2. Workers AI → @cf/meta/llama-3.1-8b-instruct (zero-egress fallback)
 ```
 
-Each agent can use a different provider. The channel worker calls the right provider based on `agent.model_provider`.
+Each agent can use a different provider. The LLMService calls the right provider based on `agent.model_provider`. When `callWithFallback()` is used, OpenRouter is tried first and Workers AI is the fallback.
 
 ## How the Channel Worker Resolves an Agent
 

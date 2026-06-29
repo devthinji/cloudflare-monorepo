@@ -9,7 +9,7 @@ Dashboard Admin Action:
   → Create agent named "Taji"
   → Set system prompt: "You help people write CVs..."
   → Enable tools: [docgen, memory, conversation_auth]
-  → Set model: groq/llama-3.3-70b-versatile
+  → Set model: openai/gpt-4o-mini (via OpenRouter)
   → Set channel: whatsapp
   → Set WhatsApp phone number ID
   → Save
@@ -26,8 +26,8 @@ name            → "Taji" or "Elim"
 slug            → "taji" or "elim"  
 system_prompt   → Full instructions for the agent
 tools_enabled   → ["docgen", "memory", "exam_gen"] (JSON array)
-model_provider  → "groq" | "cloudflare_ai" | "openai"
-model_id        → "llama-3.3-70b-versatile"
+model_provider  → "openrouter" | "workers-ai"
+model_id        → "openai/gpt-4o-mini"
 channel         → "whatsapp" | "telegram" | "sms" | "ussd"
 channel_config  → { phone_number_id, verify_token, ... } (encrypted JSON)
 api_keys        → encrypted JSON of all secrets for this agent

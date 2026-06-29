@@ -38,7 +38,7 @@ export async function visionToSchema(
     }
 
     const keys   = fields.map(f => f.key)
-    const schema = await inferFieldSchema(env.GROQ_API_KEY, keys, documentType, fields.map(f => f.description).join(', '), templateName)
+    const schema = await inferFieldSchema(env, keys, documentType, fields.map(f => f.description).join(', '), templateName)
     return { placeholder_schema: schema, description: `AI-extracted from image. Human review required before publishing.` }
   } catch (e) {
     return { error: `Vision extraction failed: ${e instanceof Error ? e.message : String(e)}` }

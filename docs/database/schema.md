@@ -20,8 +20,8 @@ CREATE TABLE agents (
   description     TEXT,
   system_prompt   TEXT NOT NULL,             -- AI instructions
   tools_enabled   TEXT NOT NULL DEFAULT '[]',-- JSON array: ["docgen","memory"]
-  model_provider  TEXT NOT NULL DEFAULT 'groq',
-  model_id        TEXT NOT NULL DEFAULT 'llama-3.3-70b-versatile',
+  model_provider  TEXT NOT NULL DEFAULT 'openrouter',
+  model_id        TEXT NOT NULL DEFAULT 'openai/gpt-4o-mini',
   channel         TEXT NOT NULL DEFAULT 'whatsapp',
   channel_config  TEXT,                      -- encrypted JSON
   api_keys        TEXT,                      -- encrypted JSON

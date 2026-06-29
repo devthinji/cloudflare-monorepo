@@ -19,4 +19,4 @@ bucket_name = "platform-docs"
 [ai]
 binding = "AI"
 
-# Secrets: GROQ_API_KEY
+# Secrets: OPENROUTER_API_KEY

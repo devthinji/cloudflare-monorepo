@@ -6,9 +6,9 @@
 #
 # ── API workers ────────────────────────────────────────────────────────────────
 #
-#   apps/api/agent/.dev.vars.example      GROQ_API_KEY, JWT_SECRET
+#   apps/api/agent/.dev.vars.example      OPENROUTER_API_KEY, JWT_SECRET
 #   apps/api/gateway/.dev.vars.example     JWT_SECRET
-#   apps/api/docgen/.dev.vars.example      GROQ_API_KEY
+#   apps/api/docgen/.dev.vars.example      OPENROUTER_API_KEY
 #   apps/api/payments/.dev.vars.example    MPESA keys (consumer key, secret, passkey)
 #
 # ── Channel workers ────────────────────────────────────────────────────────────

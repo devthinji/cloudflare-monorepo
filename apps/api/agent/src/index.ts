@@ -33,7 +33,7 @@ app.post('/api/v1/agent/agents', async (c) => {
   const body = await c.req.json() as { name: string; slug: string; systemPrompt: string; modelProvider?: string; modelId?: string; channel?: string; description?: string }
   if (!body.name || !body.slug || !body.systemPrompt) return c.json(err('name, slug, systemPrompt required'), 400)
   const id = generateId(); const ts = now()
-  await db.insert(agents).values({ id, name: body.name, slug: body.slug, description: body.description, systemPrompt: body.systemPrompt, modelProvider: body.modelProvider ?? 'groq', modelId: body.modelId ?? 'llama-3.3-70b-versatile', channel: body.channel ?? 'whatsapp', createdAt: ts, updatedAt: ts })
+  await db.insert(agents).values({ id, name: body.name, slug: body.slug, description: body.description, systemPrompt: body.systemPrompt, modelProvider: body.modelProvider ?? 'openrouter', modelId: body.modelId ?? 'openai/gpt-4o-mini', channel: body.channel ?? 'whatsapp', createdAt: ts, updatedAt: ts })
   log.info({ slug: body.slug }, 'agent:created')
   return c.json(ok({ id, ...body, createdAt: ts }), 201)
 })
