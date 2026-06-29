@@ -33,10 +33,11 @@ export interface AgentWorkerEnv extends BaseWorkerEnv {
 }
 
 export interface DocgenWorkerEnv extends BaseWorkerEnv {
-  DB:           D1Database
-  DOCS_BUCKET:  R2Bucket
-  GROQ_API_KEY: string
-  AI:           unknown   // Cloudflare Workers AI binding
+  DB:                    D1Database
+  DOCS_BUCKET:           R2Bucket
+  GROQ_API_KEY:          string
+  AI:                    unknown   // Cloudflare Workers AI binding
+  DOCS_BUCKET_PUBLIC_URL?: string  // CDN base URL if bucket is public
 }
 
 export interface PaymentsWorkerEnv extends BaseWorkerEnv {

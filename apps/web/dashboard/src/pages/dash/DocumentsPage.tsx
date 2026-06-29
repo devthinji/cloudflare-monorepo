@@ -1,112 +1,116 @@
-import { useState } from 'react'
-import { FileText, Download, Search } from 'lucide-react'
+// ─── Documents Page ───────────────────────────────────────────────────────────
+// Lists all generated documents across all users.
+// Each row shows: title, user, SKU used, date, download link.
 
-interface Doc {
-  id:        string
-  userId:    string
-  type:      string
-  title:     string
-  fileUrl:   string
-  createdAt: string
-}
-
-const MOCK: Doc[] = [
-  { id: 'd1', userId: '+254712345678', type: 'cv',                   title: 'CV — John Mwangi',       fileUrl: '#', createdAt: 'Today, 09:14'    },
-  { id: 'd2', userId: '+254798765432', type: 'application_letter',   title: 'Application — Jane Auma', fileUrl: '#', createdAt: 'Today, 08:22'    },
-  { id: 'd3', userId: '+254711223344', type: 'resignation_letter',   title: 'Resignation — Peter K',   fileUrl: '#', createdAt: 'Yesterday'       },
-  { id: 'd4', userId: '+254733445566', type: 'cover_letter',         title: 'Cover — Mary Njeri',      fileUrl: '#', createdAt: '22 May'          },
-  { id: 'd5', userId: '+254722334455', type: 'cv',                   title: 'CV — David Ochieng',      fileUrl: '#', createdAt: '21 May'          },
-]
-
-const TYPE_COLORS: Record<string, string> = {
-  cv:                 'bg-blue-50 text-blue-600',
-  application_letter: 'bg-purple-50 text-purple-600',
-  resignation_letter: 'bg-orange-50 text-orange-500',
-  cover_letter:       'bg-teal-50 text-teal-600',
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  cv:                 'CV',
-  application_letter: 'Application',
-  resignation_letter: 'Resignation',
-  cover_letter:       'Cover Letter',
-}
+import { useEffect, useState } from 'react'
+import { FileText, Download, Loader2, X, Search, RefreshCw } from 'lucide-react'
+import { documentsApi, type Document } from '../../api/client'
 
 export default function DocumentsPage() {
-  const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [docs,    setDocs]    = useState<Document[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
+  const [search,  setSearch]  = useState('')
 
-  const filtered = MOCK.filter(d => {
-    const matchType   = typeFilter === 'all' || d.type === typeFilter
-    const matchSearch = d.title.toLowerCase().includes(search.toLowerCase()) || d.userId.includes(search)
-    return matchType && matchSearch
-  })
+  async function load() {
+    try {
+      setLoading(true); setError(null)
+      // Admin view — fetch all docs
+      const data = await documentsApi.listAll()
+      setDocs(data)
+    } catch (e) { setError((e as Error).message) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const filtered = docs.filter(d =>
+    !search ||
+    d.title.toLowerCase().includes(search.toLowerCase()) ||
+    d.userId.includes(search)
+  )
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
-        <p className="text-sm text-gray-500 mt-1">{MOCK.length} documents generated</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
+          <p className="text-sm text-gray-500 mt-1">All generated documents across all users</p>
+        </div>
+        <button onClick={load} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-2 rounded-xl">
+          <RefreshCw size={14}/> Refresh
+        </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search documents…"
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex justify-between">
+          {error}<button onClick={() => setError(null)}><X size={14}/></button>
         </div>
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 overflow-x-auto">
-          {(['all', 'cv', 'application_letter', 'resignation_letter', 'cover_letter'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTypeFilter(t)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
-                typeFilter === t ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t === 'all' ? 'All' : TYPE_LABELS[t]}
-            </button>
-          ))}
-        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search by title or user ID..."
+          className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
       </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(doc => (
-          <div key={doc.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-3">
-              <div className="p-2 bg-gray-50 rounded-lg">
-                <FileText size={18} className="text-gray-500" />
-              </div>
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${TYPE_COLORS[doc.type]}`}>
-                {TYPE_LABELS[doc.type]}
-              </span>
-            </div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-1 truncate">{doc.title}</h3>
-            <p className="text-xs text-gray-400 font-mono mb-4">{doc.userId}</p>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-400">{doc.createdAt}</span>
-              <a
-                href={doc.fileUrl}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-                onClick={e => e.preventDefault()}
-              >
-                <Download size={12} /> Download
-              </a>
-            </div>
+      {loading ? (
+        <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-300"/></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-20 text-gray-400">
+          <FileText size={44} className="mx-auto mb-4 opacity-25"/>
+          <p className="text-sm font-medium">{search ? 'No documents match your search' : 'No documents generated yet'}</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                {['Document', 'User', 'Type', 'Date', ''].map(h => (
+                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map(doc => (
+                <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-indigo-50 rounded-lg shrink-0">
+                        <FileText size={14} className="text-indigo-600"/>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 truncate max-w-[200px]">{doc.title}</p>
+                        <p className="text-xs text-gray-400 font-mono">{doc.id.slice(0, 8)}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{doc.userId}</td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{doc.type}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
+                    {new Date(doc.createdAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td className="px-4 py-3">
+                    {doc.fileUrl ? (
+                      <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
+                        <Download size={12}/> Download
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="px-4 py-3 border-t border-gray-50 text-xs text-gray-400">
+            {filtered.length} document{filtered.length !== 1 ? 's' : ''}
           </div>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="py-16 text-center text-gray-400">
-          <FileText size={32} className="mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No documents found</p>
         </div>
       )}
     </div>

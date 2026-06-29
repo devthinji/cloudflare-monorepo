@@ -71,7 +71,8 @@ export interface Document {
   createdAt:     string
 }
 export const documentsApi = {
-  list: (userId: string) => request<Document[]>('GET', `/api/v1/docgen/documents/${userId}`),
+  list:    (userId: string) => request<Document[]>('GET', `/api/v1/docgen/documents?userId=${encodeURIComponent(userId)}`),
+  listAll: ()               => request<Document[]>('GET', '/api/v1/docgen/documents/all'),
 }
 
 // ── SKUs ───────────────────────────────────────────────────────────────────────

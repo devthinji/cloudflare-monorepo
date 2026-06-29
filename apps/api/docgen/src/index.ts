@@ -578,3 +578,102 @@ app.delete('/api/v1/docgen/skus/:id', async (c) => {
 app.get('/api/v1/docgen/pipelines', (c) =>
   c.json(ok({ converters: pipelineFactory.list() }))
 )
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER ENDPOINT
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Called by ConversationMachine after payment confirmed.
+// Fetches template from R2, fills placeholders, stores result, returns URL.
+//
+// POST /api/v1/docgen/render
+// Body: { userId, skuId, fieldValues }
+
+import { renderTemplate }                from './lib/renderer'
+import { getTemplateBuffer, storeRenderedDoc, docDownloadKey } from './lib/storage'
+
+app.post('/api/v1/docgen/render', async (c) => {
+  const log  = createLogger(c.env)
+  const db   = drizzle(c.env.DB)
+  const body = await c.req.json() as {
+    userId:      string
+    skuId:       string
+    fieldValues: Record<string, unknown>
+  }
+
+  if (!body.userId || !body.skuId || !body.fieldValues) {
+    return c.json(err('userId, skuId, fieldValues required'), 400)
+  }
+
+  // 1. Load SKU from DB
+  const sku = await db.select().from(skus).where(eq(skus.id, body.skuId)).get()
+  if (!sku)           return c.json(err('SKU not found'), 404)
+  if (!sku.isActive)  return c.json(err('SKU is not active'), 400)
+
+  // 2. Fetch template from R2
+  const templateBuffer = await getTemplateBuffer(c.env, sku.fileKey)
+  if (!templateBuffer) return c.json(err('Template file not found in storage'), 404)
+
+  // 3. Render
+  const docId   = generateId()
+  const safe    = sku.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  const filename = `${safe}-${docId.slice(0, 6)}.docx`
+
+  let rendered
+  try {
+    rendered = await renderTemplate({ templateBuffer, fieldValues: body.fieldValues }, filename)
+  } catch (e) {
+    log.error({ err: e, skuId: body.skuId }, 'render:failed')
+    return c.json(err(`Render failed: ${e instanceof Error ? e.message : String(e)}`), 500)
+  }
+
+  // 4. Store rendered file in R2
+  const key     = docDownloadKey(body.userId, body.skuId, docId)
+  const fileUrl = await storeRenderedDoc(c.env, key, rendered.buffer, filename)
+
+  // 5. Save document record to DB
+  const ts = now()
+  await db.insert(documents).values({
+    id:            docId,
+    userId:        body.userId,
+    agentSlug:     sku.agentSlug,
+    templateId:    sku.id,
+    type:          sku.templateType,
+    title:         `${sku.name} — ${body.userId}`,
+    fileUrl,
+    fieldValues:   JSON.stringify(body.fieldValues),
+    createdAt:     ts,
+  })
+
+  log.info({ docId, skuId: body.skuId, userId: body.userId }, 'render:done')
+
+  return c.json(ok({
+    docId,
+    title:   `${sku.name}`,
+    fileUrl,
+    filename,
+  }), 201)
+})
+
+// ─── GET /api/v1/docgen/documents — list user's generated docs ────────────────
+
+app.get('/api/v1/docgen/documents', async (c) => {
+  const db     = drizzle(c.env.DB)
+  const userId = c.req.query('userId')
+  if (!userId) return c.json(err('userId required'), 400)
+
+  const rows = await db.select().from(documents)
+    .where(eq(documents.userId, userId))
+    .orderBy(desc(documents.createdAt))
+    .limit(50)
+
+  return c.json(ok(rows.map(r => ({ ...r, fieldValues: r.fieldValues ? JSON.parse(r.fieldValues) : null }))))
+})
+
+// ─── GET /api/v1/docgen/documents/all — admin: all docs ──────────────────────
+
+app.get('/api/v1/docgen/documents/all', async (c) => {
+  const db   = drizzle(c.env.DB)
+  const rows = await db.select().from(documents).orderBy(desc(documents.createdAt)).limit(100)
+  return c.json(ok(rows))
+})
