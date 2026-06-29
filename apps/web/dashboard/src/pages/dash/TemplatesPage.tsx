@@ -1,92 +1,101 @@
-import { useEffect, useState, useRef } from 'react'
+// ─── SKU Studio — 4-screen flow ───────────────────────────────────────────────
+// Screen 1: Library  — list all SKUs
+// Screen 2: Upload   — drag & drop file, pick type/agent/price
+// Screen 3: Review   — edit extracted fields (reorder, rename, validate)
+// Screen 4: Preview  — simulated WhatsApp conversation thread
+
+import { useEffect, useState, useRef, useCallback } from 'react'
 import {
-  FileText, Upload, Pencil, Trash2, X, Save, Loader2,
-  CheckCircle, Clock, AlertCircle, Eye, ToggleLeft, ToggleRight, Plus,
+  Upload, FileText, ChevronRight, ChevronLeft, Eye, Trash2,
+  ToggleLeft, ToggleRight, AlertCircle, CheckCircle, Loader2,
+  GripVertical, Plus, X, ArrowUp, ArrowDown, MessageSquare,
+  Pencil, BookOpen, Zap,
 } from 'lucide-react'
-import { templatesApi, type Template } from '../../api/client'
+import { skusApi, type SKU, type SKUField, type SKUUploadResult } from '../../api/client'
 
-const DOC_TYPES = [
-  'cv', 'application_letter', 'cover_letter', 'resignation_letter',
-  'nda', 'minutes', 'invoice', 'quotation', 'progress_report',
-  'revision_notes', 'exam_paper', 'gift_card', 'printable', 'portfolio', 'other',
-]
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const TIERS    = ['', 'simple', 'advanced', 'pro']
-const AGENTS   = ['taji', 'elim']
-const CURRENCIES = ['KES', 'USD', 'UGX', 'TZS']
+type Screen = 'library' | 'upload' | 'review' | 'preview'
 
-const STATUS_BADGE: Record<string, { icon: React.ReactNode; className: string; label: string }> = {
-  pending:    { icon: <Clock size={12} />,        className: 'bg-gray-100 text-gray-500',    label: 'Pending' },
-  processing: { icon: <Loader2 size={12} className="animate-spin" />, className: 'bg-blue-50 text-blue-600', label: 'Extracting...' },
-  done:       { icon: <CheckCircle size={12} />,  className: 'bg-emerald-50 text-emerald-600', label: 'Ready' },
-  failed:     { icon: <AlertCircle size={12} />,  className: 'bg-red-50 text-red-500',       label: 'Failed' },
+const FIELD_TYPES = ['text','textarea','number','phone','email','date','choice','image_url']
+const AGENTS      = ['taji', 'elim']
+const CURRENCIES  = ['KES', 'USD', 'UGX', 'TZS']
+const DOC_TYPES   = ['cv','application_letter','cover_letter','resignation_letter','nda','invoice','quotation','progress_report','exam_paper','minutes','gift_card','other']
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function statusBadge(sku: SKU) {
+  if (!sku.isActive && sku.requiresReview) return { label: 'Needs Review', color: 'bg-amber-50 text-amber-600', icon: <AlertCircle size={11}/> }
+  if (!sku.isActive)                       return { label: 'Draft',        color: 'bg-gray-100 text-gray-500',  icon: <BookOpen size={11}/> }
+  return                                          { label: 'Live',         color: 'bg-emerald-50 text-emerald-600', icon: <CheckCircle size={11}/> }
 }
 
+// ─── SKU Studio ───────────────────────────────────────────────────────────────
+
 export default function TemplatesPage() {
-  const [templates, setTemplates] = useState<Template[]>([])
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState<string | null>(null)
+  const [screen,  setScreen]  = useState<Screen>('library')
+  const [skus,    setSKUs]    = useState<SKU[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
 
-  const [panel,     setPanel]     = useState<'none' | 'upload' | 'edit' | 'view'>('none')
-  const [selected,  setSelected]  = useState<Template | null>(null)
-
-  // Upload form state
-  const [uploading, setUploading] = useState(false)
-  const [uploadForm, setUploadForm] = useState({
-    name: '', documentType: 'cv', tier: '', agentSlugs: ['taji'],
-    price: 0, currency: 'KES',
-  })
+  // Upload state
+  const [file,         setFile]         = useState<File | null>(null)
+  const [uploadForm,   setUploadForm]   = useState({ name: '', agentSlug: 'taji', documentType: 'cv', price: 200, currency: 'KES' })
+  const [uploading,    setUploading]    = useState(false)
+  const [uploadResult, setUploadResult] = useState<SKUUploadResult | null>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // Edit form state
-  const [saving, setSaving]   = useState(false)
-  const [editForm, setEditForm] = useState<Partial<Template>>({})
+  // Review state — editing a draft SKU
+  const [editSKU,   setEditSKU]   = useState<SKU | null>(null)
+  const [fields,    setFields]    = useState<SKUField[]>([])
+  const [saving,    setSaving]    = useState(false)
 
-  // Poll for processing templates
-  const pollRef = useRef<number | null>(null)
+  // Preview state
+  const [previewSKU, setPreviewSKU] = useState<SKU | null>(null)
+  const [chatThread, setChatThread] = useState<{ role: 'bot' | 'user'; text: string }[]>([])
+  const [chatInput,  setChatInput]  = useState('')
+  const chatFieldIdx = useRef(0)
 
-  async function load() {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await templatesApi.list()
-      setTemplates(data)
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // ── Load ────────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    load()
-    // Poll every 3s if any template is processing
-    pollRef.current = window.setInterval(async () => {
-      const data = await templatesApi.list().catch(() => [])
-      setTemplates(data)
-    }, 3000)
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  const load = useCallback(async () => {
+    try { setLoading(true); setSKUs(await skusApi.list()) }
+    catch (e) { setError((e as Error).message) }
+    finally { setLoading(false) }
   }, [])
 
-  // ── Upload ─────────────────────────────────────────────────────────────────
+  useEffect(() => { load() }, [load])
+
+  // ── Upload ──────────────────────────────────────────────────────────────────
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const f = e.dataTransfer.files[0]
+    if (f) { setFile(f); if (!uploadForm.name) setUploadForm(p => ({ ...p, name: f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ') })) }
+  }
 
   async function handleUpload() {
-    const file = fileRef.current?.files?.[0]
-    if (!file || !uploadForm.name || !uploadForm.documentType) return
-    setUploading(true)
+    if (!file || !uploadForm.name) return
+    setUploading(true); setError(null)
     try {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('name', uploadForm.name)
+      fd.append('agentSlug', uploadForm.agentSlug)
       fd.append('documentType', uploadForm.documentType)
-      fd.append('tier', uploadForm.tier)
-      fd.append('agentSlugs', uploadForm.agentSlugs.join(','))
       fd.append('price', String(uploadForm.price))
       fd.append('currency', uploadForm.currency)
-      const res = await templatesApi.upload(fd)
-      if (!res.success) throw new Error(res.error ?? 'Upload failed')
-      setPanel('none')
-      await load()
+
+      const res = await skusApi.upload(fd)
+      if (!res.success || !res.data) throw new Error(res.error ?? 'Upload failed')
+
+      setUploadResult(res.data)
+      // Load extracted fields into review screen
+      const full = await skusApi.get(res.data.id)
+      setEditSKU(full)
+      setFields([...full.fieldSchema].sort((a, b) => a.order - b.order))
+      setScreen('review')
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -94,310 +103,380 @@ export default function TemplatesPage() {
     }
   }
 
-  // ── Edit ───────────────────────────────────────────────────────────────────
+  // ── Review / Field Editor ───────────────────────────────────────────────────
 
-  function openEdit(t: Template) {
-    setSelected(t)
-    setEditForm({
-      name:       t.name,
-      price:      t.price,
-      currency:   t.currency,
-      tier:       t.tier,
-      agentSlugs: t.agentSlugs,
-      isActive:   t.isActive,
-    })
-    setPanel('edit')
+  function moveField(idx: number, dir: -1 | 1) {
+    const next = [...fields]
+    const target = idx + dir
+    if (target < 0 || target >= next.length) return
+    ;[next[idx], next[target]] = [next[target]!, next[idx]!]
+    setFields(next.map((f, i) => ({ ...f, order: i + 1 })))
   }
 
-  async function handleSave() {
-    if (!selected) return
+  function updateField(idx: number, patch: Partial<SKUField>) {
+    setFields(f => f.map((field, i) => i === idx ? { ...field, ...patch } : field))
+  }
+
+  function addField() {
+    setFields(f => [...f, { key: `field_${f.length + 1}`, label: 'New Field', type: 'text', required: true, order: f.length + 1 }])
+  }
+
+  function removeField(idx: number) {
+    setFields(f => f.filter((_, i) => i !== idx).map((field, i) => ({ ...field, order: i + 1 })))
+  }
+
+  async function saveFields(publish: boolean) {
+    if (!editSKU) return
     setSaving(true)
     try {
-      const payload = {
-        ...editForm,
-        agentSlugs: typeof editForm.agentSlugs === 'string'
-          ? JSON.parse(editForm.agentSlugs) : editForm.agentSlugs,
-      }
-      await templatesApi.update(selected.id, payload)
-      setPanel('none')
+      await skusApi.update(editSKU.id, { fieldSchema: fields, isActive: publish })
       await load()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setSaving(false)
+      if (publish) { setScreen('library') }
+      else { setError(null) }
+    } catch (e) { setError((e as Error).message) }
+    finally { setSaving(false) }
+  }
+
+  // ── Preview / Simulated Chat ────────────────────────────────────────────────
+
+  function openPreview(sku: SKU) {
+    setPreviewSKU(sku)
+    chatFieldIdx.current = 0
+    const sorted = [...sku.fieldSchema].sort((a, b) => a.order - b.order)
+    const first  = sorted[0]
+    setChatThread([
+      { role: 'bot', text: `Hi! Let me help you create your *${sku.name}* (${sku.currency} ${sku.price}).` },
+      { role: 'bot', text: first ? fieldPrompt(first, 0, sorted.length) : 'All fields collected!' },
+    ])
+    setChatInput('')
+    setScreen('preview')
+  }
+
+  function fieldPrompt(f: SKUField, idx: number, total: number): string {
+    let msg = `(${idx + 1}/${total}) *${f.label}*`
+    if (f.hint) msg += `\n_e.g. ${f.hint}_`
+    if (f.type === 'choice' && f.choices) msg += '\n\n' + f.choices.map((c, i) => `${i + 1}. ${c.label}`).join('\n')
+    if (!f.required) msg += '\n_(optional)_'
+    return msg
+  }
+
+  function sendPreviewMessage() {
+    if (!previewSKU || !chatInput.trim()) return
+    const sorted = [...previewSKU.fieldSchema].sort((a, b) => a.order - b.order)
+    const next   = chatFieldIdx.current + 1
+    chatFieldIdx.current = next
+
+    const newThread = [...chatThread, { role: 'user' as const, text: chatInput }]
+    if (next < sorted.length) {
+      newThread.push({ role: 'bot', text: fieldPrompt(sorted[next]!, next, sorted.length) })
+    } else {
+      newThread.push({ role: 'bot', text: `✅ All done! Here's a summary...\n\nPayment: *${previewSKU.currency} ${previewSKU.price}* via M-Pesa\n\nType *Yes* to confirm and pay.` })
     }
+    setChatThread(newThread)
+    setChatInput('')
   }
 
-  // ── Toggle active ──────────────────────────────────────────────────────────
+  // ── Toggle live ─────────────────────────────────────────────────────────────
 
-  async function handleToggle(t: Template) {
+  async function toggleActive(sku: SKU) {
     try {
-      await templatesApi.update(t.id, { isActive: !t.isActive })
+      sku.isActive ? await skusApi.unpublish(sku.id) : await skusApi.publish(sku.id)
       await load()
     } catch (e) { setError((e as Error).message) }
   }
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
-
-  async function handleDelete(t: Template) {
-    if (!confirm(`Delete "${t.name}"? This cannot be undone.`)) return
-    try {
-      await templatesApi.delete(t.id)
-      await load()
-    } catch (e) { setError((e as Error).message) }
+  async function deleteSKU(sku: SKU) {
+    if (!confirm(`Delete "${sku.name}"? This cannot be undone.`)) return
+    try { await skusApi.delete(sku.id); await load() }
+    catch (e) { setError((e as Error).message) }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Screen: Library ─────────────────────────────────────────────────────────
 
-  return (
+  if (screen === 'library') return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Templates</h1>
-          <p className="text-sm text-gray-500 mt-1">Upload .docx templates — AI extracts fields automatically</p>
+          <h1 className="text-2xl font-bold text-gray-900">SKU Studio</h1>
+          <p className="text-sm text-gray-500 mt-1">Upload templates — AI extracts fields — agents sell them</p>
         </div>
-        <button
-          onClick={() => { setUploadForm({ name: '', documentType: 'cv', tier: '', agentSlugs: ['taji'], price: 0, currency: 'KES' }); setPanel('upload') }}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          <Upload size={16} /> Upload Template
+        <button onClick={() => { setFile(null); setUploadForm({ name: '', agentSlug: 'taji', documentType: 'cv', price: 200, currency: 'KES' }); setScreen('upload') }}
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+          <Upload size={15}/> Upload Template
         </button>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex justify-between">
-          {error} <button onClick={() => setError(null)}><X size={14} /></button>
-        </div>
-      )}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex justify-between">{error}<button onClick={() => setError(null)}><X size={14}/></button></div>}
 
-      {loading && (
-        <div className="flex justify-center py-16 text-gray-400">
-          <Loader2 size={28} className="animate-spin" />
+      {loading ? (
+        <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-300"/></div>
+      ) : skus.length === 0 ? (
+        <div className="text-center py-20 text-gray-400">
+          <FileText size={44} className="mx-auto mb-4 opacity-25"/>
+          <p className="text-sm font-medium">No templates yet</p>
+          <p className="text-xs mt-1">Upload a .docx, PDF, or image to get started</p>
         </div>
-      )}
-
-      {!loading && (
+      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {templates.map(t => {
-            const status = STATUS_BADGE[t.extractionStatus] ?? STATUS_BADGE.pending
-            const agents = (() => { try { return JSON.parse(t.agentSlugs) as string[] } catch { return [] } })()
+          {skus.map(sku => {
+            const badge = statusBadge(sku)
             return (
-              <div key={t.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div key={sku.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2.5 rounded-xl bg-indigo-50 shrink-0">
-                      <FileText size={20} className="text-indigo-600" />
-                    </div>
+                    <div className="p-2.5 bg-indigo-50 rounded-xl shrink-0"><FileText size={18} className="text-indigo-600"/></div>
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{t.name}</h3>
-                      <span className="text-xs text-gray-400 font-mono">{t.documentType}{t.tier ? ` · ${t.tier}` : ''}</span>
+                      <p className="font-semibold text-gray-900 truncate text-sm">{sku.name}</p>
+                      <p className="text-xs text-gray-400 font-mono">{sku.templateType} · v{sku.version}</p>
                     </div>
                   </div>
-                  <button onClick={() => handleToggle(t)} className={`shrink-0 transition-colors ${t.isActive ? 'text-emerald-500' : 'text-gray-300'}`}>
-                    {t.isActive ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+                  <button onClick={() => toggleActive(sku)} className={`shrink-0 ${sku.isActive ? 'text-emerald-500' : 'text-gray-300'}`}>
+                    {sku.isActive ? <ToggleRight size={26}/> : <ToggleLeft size={26}/>}
                   </button>
                 </div>
 
-                {t.description && (
-                  <p className="text-xs text-gray-500 mt-3 line-clamp-2">{t.description}</p>
-                )}
+                {sku.description && <p className="text-xs text-gray-500 line-clamp-2">{sku.description}</p>}
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium ${status.className}`}>
-                    {status.icon} {status.label}
-                  </span>
-                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-semibold">
-                    {t.currency} {t.price.toFixed(0)}
-                  </span>
-                  {agents.map(a => (
-                    <span key={a} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-full">{a}</span>
-                  ))}
+                <div className="flex flex-wrap gap-1.5">
+                  <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${badge.color}`}>{badge.icon}{badge.label}</span>
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{sku.currency} {sku.price}</span>
+                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{sku.agentSlug}</span>
+                  <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">{sku.fieldSchema.length} fields</span>
                 </div>
 
-                {t.extractionStatus === 'done' && (
-                  <p className="text-xs text-gray-400 mt-2">
-                    {(() => { try { return JSON.parse(t.fieldSchema).length } catch { return 0 } })()} fields extracted
-                  </p>
-                )}
-
-                {t.extractionStatus === 'failed' && (
-                  <p className="text-xs text-red-400 mt-2 truncate">{t.extractionError}</p>
-                )}
-
-                <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end gap-3">
-                  <button onClick={() => { setSelected(t); setPanel('view') }}
-                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-medium">
-                    <Eye size={12} /> Schema
-                  </button>
-                  <button onClick={() => handleDelete(t)}
-                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 font-medium">
-                    <Trash2 size={12} /> Delete
-                  </button>
-                  <button onClick={() => openEdit(t)}
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
-                    <Pencil size={12} /> Edit
-                  </button>
+                <div className="flex justify-end gap-3 pt-2 border-t border-gray-50">
+                  <button onClick={() => openPreview(sku)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium"><MessageSquare size={12}/> Preview</button>
+                  <button onClick={() => deleteSKU(sku)}   className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 font-medium"><Trash2 size={12}/> Delete</button>
+                  <button onClick={() => { setEditSKU(sku); setFields([...sku.fieldSchema].sort((a,b) => a.order - b.order)); setScreen('review') }}
+                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"><Pencil size={12}/> Edit</button>
                 </div>
               </div>
             )
           })}
-
-          {templates.length === 0 && (
-            <div className="col-span-3 text-center py-16 text-gray-400">
-              <FileText size={40} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No templates yet. Upload your first .docx to get started.</p>
-            </div>
-          )}
         </div>
-      )}
-
-      {/* ── Upload Panel ─────────────────────────────────────────────────── */}
-      {panel === 'upload' && (
-        <SlideOver title="Upload Template" onClose={() => setPanel('none')}>
-          <Field label="Template Name *">
-            <input value={uploadForm.name} onChange={e => setUploadForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Professional CV — Blue" className={inp} />
-          </Field>
-          <Field label=".docx File *">
-            <input ref={fileRef} type="file" accept=".docx" className={inp} />
-          </Field>
-          <Field label="Document Type *">
-            <select value={uploadForm.documentType} onChange={e => setUploadForm(f => ({ ...f, documentType: e.target.value }))} className={inp}>
-              {DOC_TYPES.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </Field>
-          <Field label="Tier">
-            <select value={uploadForm.tier} onChange={e => setUploadForm(f => ({ ...f, tier: e.target.value }))} className={inp}>
-              {TIERS.map(t => <option key={t} value={t}>{t || '— none —'}</option>)}
-            </select>
-          </Field>
-          <Field label="Assign to Agents">
-            <div className="flex gap-3">
-              {AGENTS.map(a => (
-                <label key={a} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={uploadForm.agentSlugs.includes(a)}
-                    onChange={e => setUploadForm(f => ({
-                      ...f,
-                      agentSlugs: e.target.checked
-                        ? [...f.agentSlugs, a]
-                        : f.agentSlugs.filter(x => x !== a),
-                    }))} />
-                  {a}
-                </label>
-              ))}
-            </div>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={`Price (${uploadForm.currency})`}>
-              <input type="number" min={0} value={uploadForm.price}
-                onChange={e => setUploadForm(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
-                className={inp} />
-            </Field>
-            <Field label="Currency">
-              <select value={uploadForm.currency} onChange={e => setUploadForm(f => ({ ...f, currency: e.target.value }))} className={inp}>
-                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
-          </div>
-          <SlideOverFooter onClose={() => setPanel('none')} onSave={handleUpload}
-            saving={uploading} saveLabel="Upload & Extract" saveIcon={<Upload size={14} />}
-            disabled={!uploadForm.name || !fileRef.current?.files?.length} />
-        </SlideOver>
-      )}
-
-      {/* ── Edit Panel ───────────────────────────────────────────────────── */}
-      {panel === 'edit' && selected && (
-        <SlideOver title={`Edit — ${selected.name}`} onClose={() => setPanel('none')}>
-          <Field label="Name">
-            <input value={editForm.name ?? ''} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className={inp} />
-          </Field>
-          <Field label="Tier">
-            <select value={editForm.tier ?? ''} onChange={e => setEditForm(f => ({ ...f, tier: e.target.value }))} className={inp}>
-              {TIERS.map(t => <option key={t} value={t}>{t || '— none —'}</option>)}
-            </select>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Price">
-              <input type="number" min={0} value={editForm.price ?? 0}
-                onChange={e => setEditForm(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
-                className={inp} />
-            </Field>
-            <Field label="Currency">
-              <select value={editForm.currency ?? 'KES'} onChange={e => setEditForm(f => ({ ...f, currency: e.target.value }))} className={inp}>
-                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
-          </div>
-          <Field label="Active">
-            <button type="button" onClick={() => setEditForm(f => ({ ...f, isActive: !f.isActive }))}
-              className={`transition-colors ${editForm.isActive ? 'text-emerald-500' : 'text-gray-300'}`}>
-              {editForm.isActive ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-            </button>
-          </Field>
-          <SlideOverFooter onClose={() => setPanel('none')} onSave={handleSave} saving={saving} saveLabel="Save Changes" />
-        </SlideOver>
-      )}
-
-      {/* ── Schema Viewer ────────────────────────────────────────────────── */}
-      {panel === 'view' && selected && (
-        <SlideOver title={`Schema — ${selected.name}`} onClose={() => setPanel('none')}>
-          <p className="text-xs text-gray-500 mb-4">
-            AI extracted {(() => { try { return JSON.parse(selected.fieldSchema).length } catch { return 0 } })()} fields from this template.
-          </p>
-          <pre className="bg-gray-50 rounded-lg p-4 text-xs overflow-x-auto text-gray-700 whitespace-pre-wrap">
-            {JSON.stringify(JSON.parse(selected.fieldSchema || '[]'), null, 2)}
-          </pre>
-          <button onClick={() => setPanel('none')}
-            className="mt-4 w-full py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
-            Close
-          </button>
-        </SlideOver>
       )}
     </div>
   )
+
+  // ── Screen: Upload ───────────────────────────────────────────────────────────
+
+  if (screen === 'upload') return (
+    <div className="max-w-xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
+        <button onClick={() => setScreen('library')} className="text-gray-400 hover:text-gray-600"><ChevronLeft size={20}/></button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Upload Template</h1>
+          <p className="text-xs text-gray-500">Supported: .docx, .pdf, .png, .jpg</p>
+        </div>
+      </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex justify-between">{error}<button onClick={() => setError(null)}><X size={14}/></button></div>}
+
+      {/* Drop zone */}
+      <div ref={dropRef} onDragOver={e => e.preventDefault()} onDrop={handleDrop}
+        onClick={() => fileRef.current?.click()}
+        className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-colors ${file ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'}`}>
+        <input ref={fileRef} type="file" accept=".docx,.pdf,.png,.jpg,.jpeg" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); if (!uploadForm.name) setUploadForm(p => ({ ...p, name: f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') })) }}}/>
+        {file ? (
+          <div className="flex items-center justify-center gap-3">
+            <FileText size={28} className="text-indigo-600"/>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-900">{file.name}</p>
+              <p className="text-xs text-gray-400">{(file.size / 1024).toFixed(1)} KB</p>
+            </div>
+            <button onClick={e => { e.stopPropagation(); setFile(null) }} className="text-gray-300 hover:text-red-400"><X size={16}/></button>
+          </div>
+        ) : (
+          <>
+            <Upload size={32} className="mx-auto mb-3 text-gray-300"/>
+            <p className="text-sm font-medium text-gray-600">Drop your template here or click to browse</p>
+            <p className="text-xs text-gray-400 mt-1">.docx with {'{placeholders}'} · PDF · PNG / JPG</p>
+          </>
+        )}
+      </div>
+
+      {/* Metadata */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+        <Field label="Template Name">
+          <input value={uploadForm.name} onChange={e => setUploadForm(p => ({ ...p, name: e.target.value }))}
+            placeholder="e.g. Professional CV" className={input()}/>
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Agent">
+            <select value={uploadForm.agentSlug} onChange={e => setUploadForm(p => ({ ...p, agentSlug: e.target.value }))} className={input()}>
+              {AGENTS.map(a => <option key={a}>{a}</option>)}
+            </select>
+          </Field>
+          <Field label="Document Type">
+            <select value={uploadForm.documentType} onChange={e => setUploadForm(p => ({ ...p, documentType: e.target.value }))} className={input()}>
+              {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </Field>
+          <Field label="Price">
+            <input type="number" value={uploadForm.price} onChange={e => setUploadForm(p => ({ ...p, price: +e.target.value }))} className={input()}/>
+          </Field>
+          <Field label="Currency">
+            <select value={uploadForm.currency} onChange={e => setUploadForm(p => ({ ...p, currency: e.target.value }))} className={input()}>
+              {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </Field>
+        </div>
+      </div>
+
+      <button onClick={handleUpload} disabled={!file || !uploadForm.name || uploading}
+        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors">
+        {uploading ? <><Loader2 size={16} className="animate-spin"/> Extracting fields...</> : <><Zap size={16}/> Extract Fields</>}
+      </button>
+    </div>
+  )
+
+  // ── Screen: Review ───────────────────────────────────────────────────────────
+
+  if (screen === 'review' && editSKU) return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setScreen('library')} className="text-gray-400 hover:text-gray-600"><ChevronLeft size={20}/></button>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Review Fields</h1>
+            <p className="text-xs text-gray-500">{editSKU.name} · {fields.length} fields extracted</p>
+          </div>
+        </div>
+        <button onClick={() => openPreview({ ...editSKU, fieldSchema: fields })}
+          className="flex items-center gap-1.5 text-sm text-indigo-600 font-medium hover:underline">
+          <Eye size={14}/> Preview
+        </button>
+      </div>
+
+      {uploadResult?.requiresReview && (
+        <div className="flex gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-3 rounded-xl">
+          <AlertCircle size={14} className="shrink-0 mt-0.5"/>
+          <span>AI-extracted from image — please review all fields before publishing.</span>
+        </div>
+      )}
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex justify-between">{error}<button onClick={() => setError(null)}><X size={14}/></button></div>}
+
+      {/* Field list */}
+      <div className="space-y-3">
+        {fields.map((field, idx) => (
+          <div key={idx} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <button onClick={() => moveField(idx, -1)} disabled={idx === 0} className="text-gray-300 hover:text-gray-600 disabled:opacity-20"><ArrowUp size={13}/></button>
+                <button onClick={() => moveField(idx, 1)}  disabled={idx === fields.length - 1} className="text-gray-300 hover:text-gray-600 disabled:opacity-20"><ArrowDown size={13}/></button>
+              </div>
+              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-mono shrink-0">{field.order}</span>
+              <input value={field.key} onChange={e => updateField(idx, { key: e.target.value })}
+                className="text-xs font-mono text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg flex-1 min-w-0 border-0 focus:ring-1 focus:ring-indigo-300"/>
+              <button onClick={() => removeField(idx)} className="text-gray-300 hover:text-red-400 shrink-0"><X size={14}/></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Label / Question">
+                <input value={field.label} onChange={e => updateField(idx, { label: e.target.value })} className={input()} placeholder="What is your full name?"/>
+              </Field>
+              <Field label="Type">
+                <select value={field.type} onChange={e => updateField(idx, { type: e.target.value as SKUField['type'] })} className={input()}>
+                  {FIELD_TYPES.map(t => <option key={t}>{t}</option>)}
+                </select>
+              </Field>
+              <Field label="Hint (example)">
+                <input value={field.hint ?? ''} onChange={e => updateField(idx, { hint: e.target.value })} className={input()} placeholder="e.g. John Kamau"/>
+              </Field>
+              <Field label="">
+                <label className="flex items-center gap-2 cursor-pointer mt-5">
+                  <input type="checkbox" checked={field.required} onChange={e => updateField(idx, { required: e.target.checked })} className="rounded"/>
+                  <span className="text-sm text-gray-700">Required</span>
+                </label>
+              </Field>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={addField}
+        className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 hover:border-indigo-400 text-gray-500 hover:text-indigo-600 py-3 rounded-xl text-sm transition-colors">
+        <Plus size={15}/> Add Field
+      </button>
+
+      <div className="flex gap-3">
+        <button onClick={() => saveFields(false)} disabled={saving}
+          className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-xl text-sm transition-colors">
+          {saving ? 'Saving...' : 'Save Draft'}
+        </button>
+        <button onClick={() => saveFields(true)} disabled={saving}
+          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2">
+          {saving ? <Loader2 size={15} className="animate-spin"/> : <CheckCircle size={15}/>}
+          Publish & Go Live
+        </button>
+      </div>
+    </div>
+  )
+
+  // ── Screen: Preview ──────────────────────────────────────────────────────────
+
+  if (screen === 'preview' && previewSKU) return (
+    <div className="max-w-sm mx-auto space-y-4">
+      <div className="flex items-center gap-3">
+        <button onClick={() => setScreen(editSKU ? 'review' : 'library')} className="text-gray-400 hover:text-gray-600"><ChevronLeft size={20}/></button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Preview</h1>
+          <p className="text-xs text-gray-500">How it looks on WhatsApp</p>
+        </div>
+      </div>
+
+      {/* Phone frame */}
+      <div className="bg-[#e5ddd5] rounded-2xl overflow-hidden shadow-lg" style={{ height: 560 }}>
+        {/* Header bar */}
+        <div className="bg-[#075e54] text-white px-4 py-3 flex items-center gap-3">
+          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">T</div>
+          <div>
+            <p className="text-sm font-semibold">Taji</p>
+            <p className="text-xs opacity-70">online</p>
+          </div>
+        </div>
+
+        {/* Chat thread */}
+        <div className="overflow-y-auto p-3 space-y-2" style={{ height: 460 }}>
+          {chatThread.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-line shadow-sm ${msg.role === 'user' ? 'bg-[#dcf8c6] text-gray-900 rounded-br-none' : 'bg-white text-gray-900 rounded-bl-none'}`}>
+                {msg.text}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Input bar */}
+        <div className="bg-white px-3 py-2 flex gap-2">
+          <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && sendPreviewMessage()}
+            placeholder="Type a message..." className="flex-1 text-sm px-3 py-1.5 bg-gray-100 rounded-full outline-none"/>
+          <button onClick={sendPreviewMessage} className="bg-[#075e54] text-white w-8 h-8 rounded-full flex items-center justify-center">
+            <ChevronRight size={16}/>
+          </button>
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-gray-400">Type answers to walk through the full conversation</p>
+    </div>
+  )
+
+  return null
 }
 
-// ── Shared UI helpers ─────────────────────────────────────────────────────────
-
-const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400'
+// ─── Micro components ─────────────────────────────────────────────────────────
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+    <div className="space-y-1">
+      {label && <label className="text-xs font-medium text-gray-500">{label}</label>}
       {children}
     </div>
   )
 }
 
-function SlideOver({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 bg-black/30 z-40 flex justify-end" onClick={onClose}>
-      <div className="w-full max-w-lg bg-white h-full shadow-xl flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">{children}</div>
-      </div>
-    </div>
-  )
-}
-
-function SlideOverFooter({
-  onClose, onSave, saving, saveLabel = 'Save', saveIcon, disabled = false,
-}: {
-  onClose: () => void; onSave: () => void; saving: boolean
-  saveLabel?: string; saveIcon?: React.ReactNode; disabled?: boolean
-}) {
-  return (
-    <div className="flex gap-3 pt-2">
-      <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-      <button onClick={onSave} disabled={saving || disabled}
-        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium transition-colors">
-        {saving ? <Loader2 size={14} className="animate-spin" /> : (saveIcon ?? <Save size={14} />)}
-        {saveLabel}
-      </button>
-    </div>
-  )
+function input() {
+  return 'w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white'
 }
