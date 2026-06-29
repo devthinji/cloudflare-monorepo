@@ -1,9 +1,8 @@
 // ─── Conversation State Machine — States & Transitions ───────────────────────
 //
-// Based on the 4-stage flow:
-//   Identify → Auth → Collect/Fill/Deliver → Farewell
-//
-// Each stage has sub-states. The machine persists in KV keyed by userId.
+// 4-stage flow:  Identify → Auth → Collect/Fill/Deliver → Farewell
+// Machine context persists in KV keyed by userId+agentSlug.
+// SKU schema is loaded from docgen at runtime — no hardcoded fields.
 
 export type MachineStage =
   | 'identify'
@@ -18,12 +17,37 @@ export type UserClass =
   | 'registered'
 
 export type CollectSubState =
-  | 'collection'
-  | 'validation'
-  | 'transaction'
-  | 'transaction_validation'
-  | 'generation'
-  | 'repetition_or_close'
+  | 'sku_select'              // user is choosing which document
+  | 'collection'              // walking SKU fields one by one
+  | 'validation'              // confirming collected data
+  | 'transaction'             // STK push initiated
+  | 'transaction_validation'  // waiting for M-Pesa callback
+  | 'generation'              // rendering doc
+  | 'repetition_or_close'     // ask to repeat or end
+
+// ─── Live SKU field (loaded from DB, stored in context) ──────────────────────
+
+export interface LiveFieldSchema {
+  key:       string
+  label:     string
+  hint?:     string
+  type:      string
+  required:  boolean
+  order:     number
+  choices?:  { label: string; value: string }[]
+  condition?: { field: string; operator: string; value?: string }
+}
+
+export interface LiveSKU {
+  id:          string
+  name:        string
+  price:       number
+  currency:    string
+  agentSlug:   string
+  fields:      LiveFieldSchema[]
+}
+
+// ─── Machine context ─────────────────────────────────────────────────────────
 
 export interface MachineContext {
   userId:       string
@@ -35,36 +59,30 @@ export interface MachineContext {
   // Auth
   isRegistered: boolean
   profileName?: string
-  // Collect
-  templateId?:  string
-  sessionData?: Record<string, unknown>
+  // SKU
+  liveSKU?:         LiveSKU                   // loaded from DB at sku_select
+  currentFieldIdx:  number                    // which field we are on
+  collectedFields:  Record<string, unknown>   // answers so far
+  // Payment
+  checkoutRequestId?: string
+  txId?:              string
   // Meta
-  sessionCount: number   // how many completed docs this session
+  sessionCount: number
   createdAt:    string
   updatedAt:    string
 }
 
-export type MachineEvent =
-  | { type: 'MESSAGE';         text: string }
-  | { type: 'USER_FOUND';      name: string }
-  | { type: 'USER_NOT_FOUND' }
-  | { type: 'REGISTERED' }
-  | { type: 'COLLECTION_DONE'; data: Record<string, unknown> }
-  | { type: 'PAYMENT_OK' }
-  | { type: 'PAYMENT_FAILED' }
-  | { type: 'DOC_GENERATED';   fileUrl: string; title: string }
-  | { type: 'REPEAT' }
-  | { type: 'CLOSE' }
-
 export function initialContext(userId: string, agentSlug: string, channel: string): MachineContext {
   return {
     userId, agentSlug, channel,
-    stage:        'identify',
-    userClass:    null,
-    collectSub:   null,
-    isRegistered: false,
-    sessionCount: 0,
-    createdAt:    new Date().toISOString(),
-    updatedAt:    new Date().toISOString(),
+    stage:           'identify',
+    userClass:       null,
+    collectSub:      null,
+    isRegistered:    false,
+    currentFieldIdx: 0,
+    collectedFields: {},
+    sessionCount:    0,
+    createdAt:       new Date().toISOString(),
+    updatedAt:       new Date().toISOString(),
   }
 }
