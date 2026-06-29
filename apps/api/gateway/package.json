@@ -13,7 +13,8 @@
     "@repo/utils": "workspace:*",
     "hono": "^4.4.0",
     "hono-rate-limiter": "^0.5.3",
-    "pino": "^9.2.0"
+    "pino": "^9.2.0",
+    "xstate": "^5.32.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240529.0",

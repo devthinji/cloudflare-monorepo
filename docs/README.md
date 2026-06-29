@@ -32,3 +32,20 @@ The first two agents:
 > "Same superpowers. Different intentions. One dashboard."
 
 The platform doesn't change. Only the agent's name, instructions, tools, model, and API keys change — configured from the admin dashboard. This makes it infinitely extensible without rebuilding the infrastructure.
+
+---
+
+## Local Development
+
+To start the entire local environment, run:
+
+```bash
+pnpm dev
+```
+
+This single command will:
+- Validate your environment
+- Apply all D1 database migrations locally
+- Start the API microservices (`agent`, `docgen`, `gateway`, `payments`)
+- Start the Web frontend (`dashboard`, `whatsapp`)
+- **Automatically launch Drizzle Studio (`db:studio`)** for real-time database management at `https://local.drizzle.studio`

@@ -18,14 +18,20 @@
     "dev:dashboard": "turbo run dev --filter=@repo/web-dashboard",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
+    "db:studio": "bash -c 'export LOCAL_DB_PATH=$(bash scripts/d1-local-path.sh) && drizzle-kit studio'",
     "db:migrate": "drizzle-kit migrate"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.30.4",
+    "@libsql/client": "^0.17.4",
+    "drizzle-kit": "^0.31.10",
     "turbo": "^2.0.0"
   },
   "dependencies": {
-    "drizzle-orm": "^0.30.10"
+    "drizzle-orm": "^0.45.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   }
 }
