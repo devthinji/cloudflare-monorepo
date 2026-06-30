@@ -10,7 +10,9 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "bash -c 'export LOCAL_DB_PATH=$(bash scripts/d1-local-path.sh) && drizzle-kit studio'",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "npx wrangler d1 execute platform-db --local --file=apps/api/gateway/drizzle/seed/dev.sql --config=apps/api/gateway/wrangler.toml",
+    "db:seed:remote": "npx wrangler d1 execute platform-db --remote --file=apps/api/gateway/drizzle/seed/dev.sql --config=apps/api/gateway/wrangler.toml"
   },
   "devDependencies": {
     "@libsql/client": "^0.17.4",
