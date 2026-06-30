@@ -131,15 +131,17 @@ machineRoutes.post('/advance', async (c) => {
 
     renderDoc: async (context, sku) => {
       try {
+        const body: Record<string, unknown> = {
+          userId:      context.userId,
+          agentSlug:   context.agentSlug,
+          skuId:       sku.id,
+          fieldValues: context.collectedFields,
+        }
+        if (context.docFileName) body.fileName = context.docFileName
         const res  = await c.env.DOCGEN_WORKER.fetch(new Request('https://internal/api/v1/docgen/render', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json', 'X-Internal': 'gateway' },
-          body: JSON.stringify({
-            userId:      context.userId,
-            agentSlug:   context.agentSlug,
-            skuId:       sku.id,
-            fieldValues: context.collectedFields,
-          }),
+          body: JSON.stringify(body),
         }))
         const data = await res.json() as { success: boolean; data?: { docId: string; title: string; fileUrl: string; key: string; filename: string } }
         return data.success && data.data ? data.data : null

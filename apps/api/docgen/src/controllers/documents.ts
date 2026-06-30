@@ -58,7 +58,7 @@ export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const log = createLogger('docgen', c.env)
   const db = createDb(c.env.DB)
   const body = await c.req.json() as {
-    userId: string; agentSlug: string; skuId: string; fieldValues: Record<string, unknown>
+    userId: string; agentSlug: string; skuId: string; fieldValues: Record<string, unknown>; fileName?: string
   }
 
   if (!body.userId || !body.agentSlug || !body.skuId || !body.fieldValues) return c.json(err('userId, agentSlug, skuId, fieldValues required'), 400)
@@ -72,7 +72,8 @@ export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
 
   const docId = generateId()
   const safe = sku.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-  const filename = `${safe}-${docId.slice(0, 6)}.docx`
+  const userSafe = body.fileName ? body.fileName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) : ''
+  const filename = userSafe ? `${userSafe}.docx` : `${safe}-${docId.slice(0, 6)}.docx`
 
   let rendered
   try {

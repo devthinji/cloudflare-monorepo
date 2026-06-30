@@ -99,6 +99,7 @@ export class ConversationMachine {
     switch (ctx.collectSub) {
       case 'sku_select':             return this.subSKUSelect(ctx, input)
       case 'collection':             return this.subCollection(ctx, input)
+      case 'naming':                 return this.subNaming(ctx, input)
       case 'validation':             return this.subValidation(ctx, input)
       case 'transaction':            return this.subTransaction(ctx)
       case 'transaction_validation': return this.subTransactionValidation(ctx, input)
@@ -171,10 +172,30 @@ export class ConversationMachine {
 
     if (nextIdx >= nextFields.length) {
       const t = T['collect:collection:ALL_FIELDS_DONE']!
-      return this.subValidation({ ...ctx, stage: t.nextStage, collectSub: t.nextSub!, collectedFields: collected, currentFieldIdx: nextIdx }, '')
+      const next = { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, collectedFields: collected, currentFieldIdx: nextIdx }
+      if (t.nextSub === 'naming') return this.subNaming(next, '')
+      return this.subValidation(next, '')
     }
 
     return { reply: this.fieldPrompt(sku, nextIdx, collected), context: { ...ctx, collectedFields: collected, currentFieldIdx: nextIdx }, done: false }
+  }
+
+  private async subNaming(ctx: MachineContext, input: string): Promise<AdvanceResult> {
+    const { messages: M, guards: G, transitions: T } = this.bp
+    const sku = ctx.liveSKU!
+
+    if (!input) {
+      return { reply: M.namingPrompt(sku.name), context: { ...ctx, collectSub: 'naming' }, done: false }
+    }
+
+    let docFileName: string | undefined
+    if (!G.isSkipCommand(input)) {
+      docFileName = input.trim()
+    }
+
+    const t = T['collect:naming:NAME_PROVIDED']!
+    const next = { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, docFileName }
+    return this.subValidation(next, '')
   }
 
   private async subValidation(ctx: MachineContext, input: string): Promise<AdvanceResult> {
@@ -260,7 +281,7 @@ export class ConversationMachine {
 
     const t = T['collect:generation:DOC_READY']!
     return {
-      reply:   M.docReady(result.title, result.fileUrl),
+      reply:   M.docReady(result.title),
       context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, sessionCount: ctx.sessionCount + 1 },
       document: { docId: result.docId, key: result.key, filename: result.filename },
       done:    false,

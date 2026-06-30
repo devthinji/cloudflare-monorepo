@@ -13,6 +13,7 @@ export type CustomerClass =
 export type CollectSubState =
   | 'sku_select'
   | 'collection'
+  | 'naming'
   | 'validation'
   | 'transaction'
   | 'transaction_validation'
@@ -35,7 +36,7 @@ export interface MachineContext {
   isRegistered: boolean; profileName?: string
   liveSKU?: LiveSKU; currentFieldIdx: number; collectedFields: Record<string, unknown>
   checkoutRequestId?: string; txId?: string
-  sessionCount: number; createdAt: string; updatedAt: string
+  docFileName?: string; sessionCount: number; createdAt: string; updatedAt: string
 }
 
 export interface DocDelivery {

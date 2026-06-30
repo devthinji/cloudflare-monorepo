@@ -34,6 +34,7 @@ export type BlueprintEvent =
   | 'FIELD_VALID'
   | 'FIELD_INVALID'
   | 'ALL_FIELDS_DONE'
+  | 'NAME_PROVIDED'
   | 'SUMMARY_CONFIRMED'
   | 'SUMMARY_REJECTED'
   | 'PAYMENT_INITIATED'
@@ -50,6 +51,7 @@ export type BlueprintEvent =
 export type CollectSub =
   | 'sku_select'
   | 'collection'
+  | 'naming'
   | 'validation'
   | 'transaction'
   | 'transaction_validation'
@@ -84,7 +86,10 @@ export const TRANSITIONS: Record<string, Transition> = {
   // collect > collection
   'collect:collection:FIELD_VALID':            { nextStage: 'collect', nextSub: 'collection' }, // advance field
   'collect:collection:FIELD_INVALID':          { nextStage: 'collect', nextSub: 'collection' }, // stay on field
-  'collect:collection:ALL_FIELDS_DONE':        { nextStage: 'collect', nextSub: 'validation' },
+  'collect:collection:ALL_FIELDS_DONE':        { nextStage: 'collect', nextSub: 'naming' },
+
+  // collect > naming
+  'collect:naming:NAME_PROVIDED':              { nextStage: 'collect', nextSub: 'validation' },
 
   // collect > validation
   'collect:validation:SUMMARY_CONFIRMED':      { nextStage: 'collect', nextSub: 'transaction' },
@@ -120,6 +125,7 @@ export const TRANSITIONS: Record<string, Transition> = {
 export const GUARDS = {
   isNameValid:      (input: string): boolean => input.trim().length >= 2,
   isCancelCommand:  (input: string): boolean => /^(cancel|hapana|stop)\b/i.test(input.trim()),
+  isSkipCommand:    (input: string): boolean => /^(skip|dash|-|pass|default|none)\b/i.test(input.trim()),
   isConfirmation:   (input: string): boolean => /^(yes|ndio|sawa|ok|confirm|y)\b/i.test(input.trim()),
   isRejection:      (input: string): boolean => /^(no|hapana|edit|change|n)\b/i.test(input.trim()),
   wantsAnother:     (input: string): boolean => /^(yes|ndio|another|more|sawa|y)\b/i.test(input.trim()),
@@ -189,6 +195,12 @@ export const MESSAGES = {
     return msg
   },
 
+  // naming
+  namingPrompt: (skuName: string) =>
+    `Give your *${skuName}* a name — this will be the filename you receive.\n\nReply with a name or type *skip* to use the default.`,
+  namingSkipped: (defaultName: string) =>
+    `Using default filename: *${defaultName}*`,
+
   // validation
   summaryPrompt: (lines: string[], skuName: string) =>
     `Here's what you gave me for your *${skuName}*:\n\n${lines.join('\n')}\n\n✅ Is everything correct?\n\nReply *Yes* to pay and generate, or *No* to edit.`,
@@ -212,8 +224,8 @@ export const MESSAGES = {
     `Payment tracking lost. Type /reset to start over.`,
 
   // generation
-  docReady: (title: string, fileUrl: string) =>
-    `✅ *${title}* is ready!\n\n📄 ${fileUrl}\n\nWould you like to create another document?\n\nReply *Yes* or *No*.`,
+  docReady: (title: string) =>
+    `✅ *${title}* is ready!\n\nWould you like to create another document?\n\nReply *Yes* or *No*.`,
   docFailed:
     `⚠️ Document generation failed. Please contact support or type /reset.`,
 
