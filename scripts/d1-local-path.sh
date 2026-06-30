@@ -2,10 +2,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Workers that share platform-db — prefer agent (dev migrations run here first)
+# Workers that share platform-db — prefer gateway (migrations + seeds run here)
 SEARCH_ROOTS=(
-  "$ROOT/apps/api/agent"
   "$ROOT/apps/api/gateway"
+  "$ROOT/apps/api/agent"
   "$ROOT/apps/api/docgen"
   "$ROOT/apps/api/payments"
 )

@@ -41,16 +41,27 @@ if ! bash "$ROOT/scripts/validate.sh"; then
   exit 1
 fi
 
-# ─── Run D1 migrations ─────────────────────────────────────────────────────────
+# ─── Run D1 migrations + seed (ALL workers) ──────────────────────────────────
+
+MIGRATION_FILE="apps/api/gateway/drizzle/migration/0000_init.sql"
+SEED_FILE="apps/api/gateway/drizzle/seed/dev.sql"
+WORKERS=(gateway agent docgen payments)
 
 cstep "Applying D1 migrations..."
-for file in apps/api/gateway/drizzle/migration/*.sql; do
-  [ -e "$file" ] || continue
-  (cd apps/api/gateway && npx wrangler d1 execute platform-db --local \
-    --file="drizzle/migration/$(basename "$file")" > /dev/null 2>&1) || true
+for w in "${WORKERS[@]}"; do
+  npx wrangler d1 execute platform-db --local \
+    --file="$MIGRATION_FILE" \
+    --config="apps/api/$w/wrangler.toml" > /dev/null 2>&1 || true
 done
-
 cpass "Migrations applied"
+
+cstep "Seeding D1 databases..."
+for w in "${WORKERS[@]}"; do
+  npx wrangler d1 execute platform-db --local \
+    --file="$SEED_FILE" \
+    --config="apps/api/$w/wrangler.toml" > /dev/null 2>&1 || true
+done
+cpass "Seed data applied"
 
 # ─── Start workers ─────────────────────────────────────────────────────────────
 

@@ -56,16 +56,18 @@ export const customers = sqliteTable('customers', {
 // ─── Auth: admin users (dashboard login) ─────────────────────────────────────
 
 export const admins = sqliteTable('admins', {
-  id:        text('id').primaryKey(),
-  name:      text('name').notNull(),
-  email:     text('email').notNull().unique(),
-  phone:     text('phone'),
-  role:      text('role').notNull().default('admin'),
-  hash:      text('hash').notNull(),
-  contacts:  text('contacts'),
-  isActive:  integer('is_active', { mode: 'boolean' }).notNull().default(true),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
+  id:         text('id').primaryKey(),
+  name:       text('name').notNull(),
+  email:      text('email').notNull().unique(),
+  phone:      text('phone'),
+  roles:      text('roles').notNull().default('["admin"]'),
+  scope:      text('scope'),
+  hash:       text('hash').notNull(),
+  secretWord: text('secret_word'),
+  contact:    text('contact'),
+  isActive:   integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt:  text('created_at').notNull(),
+  updatedAt:  text('updated_at').notNull(),
 })
 
 // ─── Docgen: templates, documents ─────────────────────────────────────────────

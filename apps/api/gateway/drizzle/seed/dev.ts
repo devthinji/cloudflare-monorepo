@@ -158,6 +158,19 @@ const resignationSteps: ConversationStep[] = resignationFields.map((f, i) => ({
   validation: 'required',
 }))
 
+const basicCvFields: FieldSchema[] = [
+  { key: 'full_name', label: 'Full Name',     type: 'text', required: true,  hint: 'Your full name' },
+  { key: 'phone',     label: 'Phone Number',  type: 'text', required: true,  hint: 'e.g. 0712345678' },
+  { key: 'job_title', label: 'Target Job',    type: 'text', required: false, hint: 'e.g. Software Developer' },
+]
+
+const basicCvSteps: ConversationStep[] = basicCvFields.map((f, i) => ({
+  id: `step-${i + 1}`,
+  prompt: `${i + 1}/${basicCvFields.length} — *${f.label}*${f.hint ? '\n' + f.hint : ''}`,
+  fieldKey: f.key,
+  validation: f.key === 'phone' ? 'phone' : f.required ? 'required' : undefined,
+}))
+
 // ─── Admins ───────────────────────────────────────────────────────────────────
 
 const adminsData = [
@@ -166,10 +179,12 @@ const adminsData = [
     name: 'Dev Admin',
     email: 'admin@example.com',
     phone: null,
-    role: 'superadmin',
-    // SHA-256("admin123" + "dev-secret") — default dev credentials
+    roles: JSON.stringify(['superadmin']),
+    scope: JSON.stringify(['*']),
     hash: '6f0e6f6c5c7f7c5a9e8d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3',
-    contacts: null,
+    // SHA-256("admin123" + "dev-secret") — default dev credentials
+    secretWord: null,
+    contact: null,
     isActive: 1,
   },
 ]
@@ -226,6 +241,23 @@ const skus = [
     requiresReview:     0,
     version:            1,
   },
+  {
+    id:                 'sku-basic-cv-free-001',
+    name:               'Basic CV (Free)',
+    slug:               'basic-cv-free',
+    description:        'A simple CV with just your name, phone and target job — free, no payment needed.',
+    templateType:       'docx',
+    fileKey:            'templates/basic-cv-free-v1.docx',
+    previewKey:         null,
+    markdownPreview:    '## Basic CV\nName, phone, target job.',
+    price:              0,
+    currency:           'KES',
+    fieldSchema:        JSON.stringify(basicCvFields),
+    conversationSteps:  JSON.stringify(basicCvSteps),
+    isActive:           1,
+    requiresReview:     0,
+    version:            1,
+  },
 ]
 
 // 3. SKU-agent access (junction table)
@@ -237,6 +269,8 @@ const skuAgentAccessData = [
   { id: 'access-saa-cover-elim-001',  skuId: 'sku-cover-letter-001', agentSlug: 'elim', enabled: 0 },
   { id: 'access-saa-resign-taji-001', skuId: 'sku-resignation-001', agentSlug: 'taji', enabled: 1 },
   { id: 'access-saa-resign-elim-001', skuId: 'sku-resignation-001', agentSlug: 'elim', enabled: 0 },
+  { id: 'access-saa-basic-taji-001',  skuId: 'sku-basic-cv-free-001', agentSlug: 'taji', enabled: 1 },
+  { id: 'access-saa-basic-elim-001',  skuId: 'sku-basic-cv-free-001', agentSlug: 'elim', enabled: 1 },
 ]
 
 // ─── Generate SQL ─────────────────────────────────────────────────────────────
@@ -305,10 +339,10 @@ lines.push(
 
 for (const a of adminsData) {
   lines.push(
-    `INSERT OR REPLACE INTO admins (id, name, email, phone, role, hash, contacts, is_active, created_at, updated_at) VALUES (`,
+    `INSERT OR REPLACE INTO admins (id, name, email, phone, roles, scope, hash, secret_word, contact, is_active, created_at, updated_at) VALUES (`,
     `  '${esc(a.id)}', '${esc(a.name)}', '${esc(a.email)}',`,
-    `  ${a.phone ? `'${esc(a.phone)}'` : 'NULL'}, '${esc(a.role)}', '${esc(a.hash)}',`,
-    `  ${a.contacts ? `'${esc(a.contacts)}'` : 'NULL'}, ${a.isActive}, '${now}', '${now}'`,
+    `  ${a.phone ? `'${esc(a.phone)}'` : 'NULL'}, '${esc(a.roles)}', '${esc(a.scope)}', '${esc(a.hash)}',`,
+    `  ${a.secretWord ? `'${esc(a.secretWord)}'` : 'NULL'}, ${a.contact ? `'${esc(a.contact)}'` : 'NULL'}, ${a.isActive}, '${now}', '${now}'`,
     `);`,
     '',
   )

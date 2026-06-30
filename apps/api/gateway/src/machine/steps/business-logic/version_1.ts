@@ -41,6 +41,7 @@ export type BlueprintEvent =
   | 'PAYMENT_COMPLETED'
   | 'PAYMENT_FAILED'
   | 'PAYMENT_CANCELLED'
+  | 'PAYMENT_SKIPPED'
   | 'DOC_READY'
   | 'DOC_FAILED'
   | 'WANTS_ANOTHER'
@@ -87,6 +88,7 @@ export const TRANSITIONS: Record<string, Transition> = {
 
   // collect > validation
   'collect:validation:SUMMARY_CONFIRMED':      { nextStage: 'collect', nextSub: 'transaction' },
+  'collect:validation:PAYMENT_SKIPPED':        { nextStage: 'collect', nextSub: 'generation' },
   'collect:validation:SUMMARY_REJECTED':       { nextStage: 'collect', nextSub: 'collection' }, // restart collection
 
   // collect > transaction
@@ -196,6 +198,8 @@ export const MESSAGES = {
   // transaction
   paymentPrompt: (currency: string, price: number, customerMessage: string) =>
     `💳 *Payment: ${currency} ${price}*\n\n${customerMessage}\n\nEnter your M-Pesa PIN when prompted. I'll send your document automatically once confirmed. ✅`,
+  paymentFree: (skuName: string) =>
+    `🎉 *${skuName}* is free! Generating your document now...`,
   paymentFailed:
     `⚠️ Payment initiation failed. Please try again or type /reset.`,
   paymentWaiting:

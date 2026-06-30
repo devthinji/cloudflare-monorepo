@@ -106,9 +106,11 @@ CREATE TABLE `admins` (
 	`name` text NOT NULL,
 	`email` text NOT NULL,
 	`phone` text,
-	`role` text DEFAULT 'admin' NOT NULL,
+	`roles` text DEFAULT '["admin"]' NOT NULL,
+	`scope` text,
 	`hash` text NOT NULL,
-	`contacts` text,
+	`secret_word` text,
+	`contact` text,
 	`is_active` integer DEFAULT true NOT NULL,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL

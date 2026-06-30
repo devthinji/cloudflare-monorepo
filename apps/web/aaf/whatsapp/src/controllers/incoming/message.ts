@@ -59,7 +59,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
       return c.json(ok(null))
     }
 
-    const { from, text, phoneNumberId, name, type: msgType } = incoming
+      const { from, text, phoneNumberId, name, messageId, type: msgType } = incoming
 
     log('name', name)
     log('number', `+${from}`)
@@ -99,7 +99,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
       await sessionModel.saveSession(from, session)
 
       if (reply) {
-        await sendReply(phoneNumberId, from, reply, c.env.WHATSAPP_ACCESS_TOKEN)
+        await sendReply(phoneNumberId, from, reply, c.env.WHATSAPP_ACCESS_TOKEN, messageId)
         log('reply', reply.slice(0, 200))
         log('stage', data?.data?.stage ?? '')
       }

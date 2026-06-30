@@ -29,7 +29,7 @@ app.patch('/api/v1/docgen/skus/:id',             SkusCtrl.updateSKU)
 app.delete('/api/v1/docgen/skus/:id',            SkusCtrl.deleteSKU)
 app.get('/api/v1/docgen/pipelines',              SkusCtrl.listPipelines)
 
-app.post('/api/v1/docgen/render',                DocumentsCtrl.renderDoc)
+app.post('/api/v1/docgen/render',                DocumentsCtrl.renderSKUDoc)
 app.post('/api/v1/docgen/cv',                    DocumentsCtrl.legacyGenerateCv)
 app.get('/api/v1/docgen/documents',              DocumentsCtrl.listUserDocs)
 app.get('/api/v1/docgen/documents/all',          DocumentsCtrl.listAllDocs)

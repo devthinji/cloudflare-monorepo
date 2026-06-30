@@ -1,4 +1,4 @@
-import { sendTextMessage } from '../../lib/whatsapp'
+import { sendTextMessage, markAsRead } from '../../lib/whatsapp'
 
 export async function sendHelp(phoneNumberId: string, to: string, token: string) {
   const text = `*Help*\n\n/reset — Clear conversation\n/help — This menu`
@@ -13,7 +13,10 @@ export async function sendError(phoneNumberId: string, to: string, token: string
   await sendTextMessage(phoneNumberId, to, 'Something went wrong. Please try again shortly.', token).catch(() => {})
 }
 
-export async function sendReply(phoneNumberId: string, to: string, reply: string, token: string) {
+export async function sendReply(phoneNumberId: string, to: string, reply: string, token: string, messageId?: string) {
+  if (messageId) {
+    markAsRead(phoneNumberId, messageId, token).catch(() => {})
+  }
   for (const chunk of splitMessage(reply)) {
     await sendTextMessage(phoneNumberId, to, chunk, token)
   }

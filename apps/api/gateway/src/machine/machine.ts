@@ -189,6 +189,15 @@ export class ConversationMachine {
     }
 
     if (G.isConfirmation(input)) {
+      const sku = ctx.liveSKU!
+      if (sku.price === 0) {
+        const t = T['collect:validation:PAYMENT_SKIPPED']!
+        return {
+          reply: M.paymentFree(sku.name),
+          context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub! },
+          done: false,
+        }
+      }
       const t = T['collect:validation:SUMMARY_CONFIRMED']!
       return this.subTransaction({ ...ctx, stage: t.nextStage, collectSub: t.nextSub! })
     }
