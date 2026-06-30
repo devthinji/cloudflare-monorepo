@@ -9,5 +9,8 @@ export interface Env {
   API_GATEWAY:              Fetcher
 }
 
-export interface Session { agentSlug?: string }
+export interface Session {
+  agentSlug?: string
+  pendingReset?: boolean
+}
 export const DEFAULT_AGENT = 'taji'

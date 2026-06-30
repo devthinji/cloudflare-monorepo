@@ -29,7 +29,7 @@ export interface WaWebhookPayload {
         messaging_product: string
         metadata: { phone_number_id: string; display_phone_number?: string }
         contacts?:  WaContact[]
-        messages?:  WaTextMessage[]
+        messages?:  Record<string, unknown>[]
         statuses?:  WaStatus[]
       }
       field: string
@@ -77,17 +77,54 @@ export function parseIncomingMessage(payload: WaWebhookPayload): {
 } | null {
   const change = payload.entry[0]?.changes[0]
   if (!change) return null
-  const msg = change.value.messages?.[0]
-  if (!msg || msg.type !== 'text') return null
+  const rawMsg = change.value.messages?.[0]
+  if (!rawMsg) return null
   const name = change.value.contacts?.[0]?.profile?.name ?? 'Unknown'
-  return {
-    from:          normalisePhone(msg.from),
-    text:          msg.text.body.trim(),
-    messageId:     msg.id,
-    phoneNumberId: change.value.metadata.phone_number_id,
-    name,
-    type:          msg.type,
+  const msgType = rawMsg.type as string | undefined
+  const msgFrom = rawMsg.from as string | undefined
+  const msgId   = rawMsg.id   as string | undefined
+  if (!msgFrom || !msgId) return null
+
+  if (msgType === 'text') {
+    const textBody = (rawMsg.text as { body?: string } | undefined)?.body ?? ''
+    return {
+      from:          normalisePhone(msgFrom),
+      text:          textBody.trim(),
+      messageId:     msgId,
+      phoneNumberId: change.value.metadata.phone_number_id,
+      name,
+      type:          msgType,
+    }
   }
+
+  if (msgType === 'interactive') {
+    const interactive = rawMsg.interactive as Record<string, unknown> | undefined
+    const interactiveType = interactive?.type as string | undefined
+    if (interactiveType === 'button_reply') {
+      const br = interactive?.button_reply as Record<string, string> | undefined
+      return {
+        from:          normalisePhone(msgFrom),
+        text:          br?.id ?? '',
+        messageId:     msgId,
+        phoneNumberId: change.value.metadata.phone_number_id,
+        name,
+        type:          'interactive_button',
+      }
+    }
+    if (interactiveType === 'list_reply') {
+      const lr = interactive?.list_reply as Record<string, string> | undefined
+      return {
+        from:          normalisePhone(msgFrom),
+        text:          lr?.id ?? '',
+        messageId:     msgId,
+        phoneNumberId: change.value.metadata.phone_number_id,
+        name,
+        type:          'interactive_list',
+      }
+    }
+  }
+
+  return null
 }
 
 export async function sendTextMessage(

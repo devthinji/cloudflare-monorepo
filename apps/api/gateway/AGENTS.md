@@ -64,6 +64,28 @@ farewell   — session closure
 Sub-stages inside collect:
 `sku_select → collection → validation → transaction → transaction_validation → generation → repetition_or_close`
 
+### Interactive hints
+
+`AdvanceResult` includes an optional `interactive: InteractionHint` field that the
+WhatsApp worker uses to render buttons/lists instead of plain text. The machine
+populates this based on the sub-state:
+
+| Sub-state              | Interactive type | Buttons/List                        |
+|------------------------|------------------|-------------------------------------|
+| sku_select             | list             | SKU rows from `skuListInteractive()`|
+| validation (first)     | buttons          | Yes / Edit                          |
+| validation (ambiguous) | buttons          | Yes / Edit (re-shown)               |
+| transaction_validation | buttons          | Check again / Cancel                |
+| transaction_validation (failed) | buttons  | Try again / Cancel                  |
+| generation (docReady)  | buttons          | Create another / I'm done           |
+| exit/quit/reset        | buttons          | Confirm reset / Cancel              |
+| all others             | none (text)      | Free-form text input                |
+
+The `InteractionHint` type is channel-agnostic — the WhatsApp worker converts it
+into Meta Graph API interactive payloads (`button` or `list` type). Button reply
+IDs must match guard regexes in version_1.ts (e.g. `yes` matches `isConfirmation`,
+`no` matches `isRejection`, `cancel` matches `isCancelCommand`).
+
 ## Migrations
 
 All D1 migrations are owned by this worker.

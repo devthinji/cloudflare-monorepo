@@ -5,7 +5,7 @@
 // To change the conversation flow, edit the blueprint in:
 //   steps/business-logic/version_1.ts
 
-import { type MachineContext, type LiveSKU, type LiveFieldSchema, type DocDelivery, initialContext } from './states'
+import { type MachineContext, type LiveSKU, type LiveFieldSchema, type DocDelivery, type InteractionHint, initialContext } from './states'
 import { BlueprintV1, type Blueprint, TRANSITIONS } from './steps/business-logic/version_1'
 
 // ─── External services (injected by the gateway route) ───────────────────────
@@ -21,10 +21,11 @@ export interface MachineServices {
 }
 
 export interface AdvanceResult {
-  reply:    string
-  context:  MachineContext
-  done:     boolean
-  document?: DocDelivery
+  reply:       string
+  context:     MachineContext
+  done:        boolean
+  document?:   DocDelivery
+  interactive?: InteractionHint
 }
 
 // ─── Machine ──────────────────────────────────────────────────────────────────
@@ -65,7 +66,9 @@ export class ConversationMachine {
     if (user.found && user.registered) {
       const t = T['identify:CUSTOMER_REGISTERED']!
       const next: MachineContext = { ...ctx, stage: t.nextStage, collectSub: t.nextSub ?? null, customerClass: 'registered', isRegistered: true, profileName: user.name }
-      return { reply: await this.skuMenu(ctx.agentSlug, M.greetRegistered(user.name ?? '', ctx.agentSlug)), context: next, done: false }
+      const reply = await this.skuMenu(ctx.agentSlug, M.greetRegistered(user.name ?? '', ctx.agentSlug))
+      const skus = await this.svc.listSKUs(ctx.agentSlug)
+      return { reply, context: next, done: false, interactive: this.skuListInteractive(skus) }
     }
 
     if (user.found && !user.registered) {
@@ -90,7 +93,9 @@ export class ConversationMachine {
     await this.svc.registerUser(ctx.userId, name)
     const t = T['auth:NAME_VALID']!
     const next: MachineContext = { ...ctx, stage: t.nextStage, collectSub: t.nextSub ?? null, isRegistered: true, profileName: name }
-    return { reply: await this.skuMenu(ctx.agentSlug, M.registrationSuccess(name, ctx.agentSlug)), context: next, done: false }
+    const reply = await this.skuMenu(ctx.agentSlug, M.registrationSuccess(name, ctx.agentSlug))
+    const skus = await this.svc.listSKUs(ctx.agentSlug)
+    return { reply, context: next, done: false, interactive: this.skuListInteractive(skus) }
   }
 
   // ── Stage: collect ────────────────────────────────────────────────────────
@@ -103,6 +108,7 @@ export class ConversationMachine {
       case 'validation':             return this.subValidation(ctx, input)
       case 'transaction':            return this.subTransaction(ctx)
       case 'transaction_validation': return this.subTransactionValidation(ctx, input)
+      case 'confirm_generation':     return this.subConfirmGeneration(ctx, input)
       case 'generation':             return this.subGeneration(ctx)
       case 'repetition_or_close':    return this.subRepetitionOrClose(ctx, input)
       default:                       return this.subSKUSelect(ctx, input)
@@ -125,7 +131,12 @@ export class ConversationMachine {
     }
 
     if (!chosen) {
-      return { reply: await this.skuMenu(ctx.agentSlug, M.skuNotChosen), context: ctx, done: false }
+      return {
+        reply: await this.skuMenu(ctx.agentSlug, M.skuNotChosen),
+        context: ctx,
+        done: false,
+        interactive: this.skuListInteractive(skus),
+      }
     }
 
     const sku = await this.svc.loadSKU(chosen.id)
@@ -207,17 +218,38 @@ export class ConversationMachine {
         .filter(f => ctx.collectedFields[f.key] != null)
         .sort((a, b) => a.order - b.order)
         .map(f => `*${f.label}:* ${ctx.collectedFields[f.key]}`)
-      return { reply: M.summaryPrompt(lines, sku.name), context: { ...ctx, collectSub: 'validation' }, done: false }
+      return {
+        reply: M.summaryPrompt(lines, sku.name),
+        context: { ...ctx, collectSub: 'validation' },
+        done: false,
+        interactive: {
+          type: 'buttons',
+          body: M.summaryPrompt(lines, sku.name),
+          buttons: [
+            { id: 'yes', title: 'Yes, looks good' },
+            { id: 'no',  title: 'Edit answers' },
+          ],
+        },
+      }
     }
 
     if (G.isConfirmation(input)) {
       const sku = ctx.liveSKU!
       if (sku.price === 0) {
         const t = T['collect:validation:PAYMENT_SKIPPED']!
+        const body = M.confirmGeneration(sku.name, ctx.docFileName, sku.price, sku.currency)
         return {
-          reply: M.paymentFree(sku.name),
+          reply: body,
           context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub! },
           done: false,
+          interactive: {
+            type: 'buttons',
+            body,
+            buttons: [
+              { id: 'yes', title: 'Send document' },
+              { id: 'no',  title: 'Cancel' },
+            ],
+          },
         }
       }
       const t = T['collect:validation:SUMMARY_CONFIRMED']!
@@ -228,7 +260,19 @@ export class ConversationMachine {
       return { reply: this.fieldPrompt(sku, 0), context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, currentFieldIdx: 0, collectedFields: {} }, done: false }
     }
 
-    return { reply: M.summaryAmbiguous, context: ctx, done: false }
+    return {
+      reply: M.summaryAmbiguous,
+      context: ctx,
+      done: false,
+      interactive: {
+        type: 'buttons',
+        body: M.summaryAmbiguous,
+        buttons: [
+          { id: 'yes', title: 'Yes, looks good' },
+          { id: 'no',  title: 'Edit answers' },
+        ],
+      },
+    }
   }
 
   private async subTransaction(ctx: MachineContext): Promise<AdvanceResult> {
@@ -262,14 +306,84 @@ export class ConversationMachine {
 
     if (status === 'completed') {
       const t = T['collect:transaction_validation:PAYMENT_COMPLETED']!
-      return this.subGeneration({ ...ctx, stage: t.nextStage, collectSub: t.nextSub! })
+      const sku = ctx.liveSKU!
+      const body = M.confirmGeneration(sku.name, ctx.docFileName, sku.price, sku.currency)
+      return {
+        reply: body,
+        context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub! },
+        done: false,
+        interactive: {
+          type: 'buttons',
+          body,
+          buttons: [
+            { id: 'yes', title: 'Send document' },
+            { id: 'no',  title: 'Cancel' },
+          ],
+        },
+      }
     }
     if (status === 'failed') {
       const t = T['collect:transaction_validation:PAYMENT_FAILED']!
-      return { reply: M.paymentFailedRetry, context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub! }, done: false }
+      return {
+        reply: M.paymentFailedRetry,
+        context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub! },
+        done: false,
+        interactive: {
+          type: 'buttons',
+          body: M.paymentFailedRetry,
+          buttons: [
+            { id: 'yes',    title: 'Try again' },
+            { id: 'cancel', title: 'Cancel' },
+          ],
+        },
+      }
     }
 
-    return { reply: M.paymentWaiting, context: ctx, done: false }
+    return {
+      reply: M.paymentWaiting,
+      context: ctx,
+      done: false,
+      interactive: {
+        type: 'buttons',
+        body: M.paymentWaiting,
+        buttons: [
+          { id: 'check',  title: 'Check again' },
+          { id: 'cancel', title: 'Cancel' },
+        ],
+      },
+    }
+  }
+
+  private async subConfirmGeneration(ctx: MachineContext, input: string): Promise<AdvanceResult> {
+    const { messages: M, guards: G, transitions: T } = this.bp
+    const sku = ctx.liveSKU!
+
+    if (G.isConfirmation(input)) {
+      const t = T['collect:confirm_generation:CONFIRM_GENERATION']!
+      return this.subGeneration({ ...ctx, stage: t.nextStage, collectSub: t.nextSub! })
+    }
+
+    if (G.isRejection(input) || G.isCancelCommand(input)) {
+      const t = T['collect:confirm_generation:CANCEL_GENERATION']!
+      const reply = await this.skuMenu(ctx.agentSlug, `Cancelled. What would you like to create instead?`)
+      const skus = await this.svc.listSKUs(ctx.agentSlug)
+      return { reply, context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, liveSKU: undefined, currentFieldIdx: 0, collectedFields: {} }, done: false, interactive: this.skuListInteractive(skus) }
+    }
+
+    const body = M.confirmGeneration(sku.name, ctx.docFileName, sku.price, sku.currency)
+    return {
+      reply: body,
+      context: { ...ctx, collectSub: 'confirm_generation' },
+      done: false,
+      interactive: {
+        type: 'buttons',
+        body,
+        buttons: [
+          { id: 'yes', title: 'Send document' },
+          { id: 'no',  title: 'Cancel' },
+        ],
+      },
+    }
   }
 
   private async subGeneration(ctx: MachineContext): Promise<AdvanceResult> {
@@ -285,15 +399,25 @@ export class ConversationMachine {
       context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, sessionCount: ctx.sessionCount + 1 },
       document: { docId: result.docId, key: result.key, filename: result.filename },
       done:    false,
+      interactive: {
+        type: 'buttons',
+        body: M.docReady(result.title),
+        buttons: [
+          { id: 'yes', title: 'Create another' },
+          { id: 'no',  title: 'I\'m done' },
+        ],
+      },
     }
   }
 
   private async subRepetitionOrClose(ctx: MachineContext, input: string): Promise<AdvanceResult> {
-    const { guards: G, transitions: T } = this.bp
+    const { messages: M, guards: G, transitions: T } = this.bp
 
     if (G.wantsAnother(input)) {
       const t = T['collect:repetition_or_close:WANTS_ANOTHER']!
-      return { reply: await this.skuMenu(ctx.agentSlug, `Great! What document do you need next?`), context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, liveSKU: undefined, currentFieldIdx: 0, collectedFields: {} }, done: false }
+      const reply = await this.skuMenu(ctx.agentSlug, `Great! What document do you need next?`)
+      const skus = await this.svc.listSKUs(ctx.agentSlug)
+      return { reply, context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, liveSKU: undefined, currentFieldIdx: 0, collectedFields: {} }, done: false, interactive: this.skuListInteractive(skus) }
     }
 
     const t = T['collect:repetition_or_close:WANTS_TO_CLOSE']!
@@ -314,10 +438,13 @@ export class ConversationMachine {
 
   private async runReopen(ctx: MachineContext): Promise<AdvanceResult> {
     const name = ctx.profileName ?? 'there'
+    const reply = await this.skuMenu(ctx.agentSlug, `Welcome back, *${name}*! 👋`)
+    const skus = await this.svc.listSKUs(ctx.agentSlug)
     return {
-      reply:   await this.skuMenu(ctx.agentSlug, `Welcome back, *${name}*! 👋`),
+      reply,
       context: { ...ctx, stage: 'collect', collectSub: 'sku_select', liveSKU: undefined, currentFieldIdx: 0, collectedFields: {} },
-      done:    false,
+      done: false,
+      interactive: this.skuListInteractive(skus),
     }
   }
 
@@ -330,6 +457,23 @@ export class ConversationMachine {
       return this.bp.messages.skuMenuHeading(heading, skus)
     } catch {
       return `${heading}\n\nSend me what document you need.`
+    }
+  }
+
+  private skuListInteractive(skus: LiveSKU[]): InteractionHint {
+    return {
+      type: 'list',
+      header: 'Select a document',
+      body: 'Tap the button below to see available documents.',
+      footer: 'Or reply with the number or name',
+      buttonLabel: 'Documents',
+      sections: [{
+        rows: skus.map((s, i) => ({
+          id: s.id,
+          title: s.name.length > 24 ? s.name.slice(0, 21) + '...' : s.name,
+          description: s.fields?.length ? `${i + 1}. ${s.fields.length} field${s.fields.length === 1 ? '' : 's'}` : `${i + 1}. No fields`,
+        })),
+      }],
     }
   }
 

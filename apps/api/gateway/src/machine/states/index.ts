@@ -17,6 +17,7 @@ export type CollectSubState =
   | 'validation'
   | 'transaction'
   | 'transaction_validation'
+  | 'confirm_generation'
   | 'generation'
   | 'repetition_or_close'
 
@@ -37,6 +38,16 @@ export interface MachineContext {
   liveSKU?: LiveSKU; currentFieldIdx: number; collectedFields: Record<string, unknown>
   checkoutRequestId?: string; txId?: string
   docFileName?: string; sessionCount: number; createdAt: string; updatedAt: string
+}
+
+export interface InteractionHint {
+  type: 'buttons' | 'list'
+  buttons?:       { id: string; title: string }[]
+  header?:        string
+  body?:          string
+  footer?:        string
+  buttonLabel?:   string
+  sections?:      { title?: string; rows: { id: string; title: string; description?: string }[] }[]
 }
 
 export interface DocDelivery {

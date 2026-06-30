@@ -57,10 +57,16 @@ Must return 200 with the challenge value for Meta to activate the webhook.
      +254712345678 → unchanged
 8. POST to API_GATEWAY: /api/v1/machine/advance
    Body: { phone, message, channel: "whatsapp" }
-9. Receive { reply } from gateway
-10. POST reply to Meta Graph API:
-   https://graph.facebook.com/v18.0/<PHONE_NUMBER_ID>/messages
-   Body: { messaging_product, to: phone, type: "text", text: { body: reply } }
+9. Receive { reply, interactive? } from gateway
+10. If `interactive` is present: render buttons/list via `sendInteractiveMessage()`
+    Instead of plain text. Uses `buildButtonMessage`/`buildListMessage` builders.
+    Interactive types: `button` (up to 3 reply buttons) or `list` (single-select rows).
+11. If no interactive: POST plain text reply to Meta Graph API:
+    https://graph.facebook.com/v20.0/<PHONE_NUMBER_ID>/messages
+    Body: { messaging_product, to: phone, type: "text", text: { body: reply } }
+12. Incoming interactive replies (button_reply / list_reply) are handled by
+    `parseIncomingMessage()` which extracts the button/list item `id` as the
+    text forwarded to the gateway. IDs must match guard regexes in version_1.ts.
 ```
 
 ## Phone number normalisation rule
@@ -105,13 +111,15 @@ WhatsApp worker triggers the delivery pipeline before sending the reply text.
 
 ```
 message.ts handleWebhook()
-  → machineModel.advance() → gets { reply, document }
+  → machineModel.advance() → gets { reply, document, interactive? }
+  → if pendingReset: handle exit confirmation flow (Yes/Cancel buttons)
+  → if exit/quit/reset cmd: set pendingReset flag, send confirm buttons
   → if document: pipelines.deliverDocument()
       → GET buffer from docgen via API_GATEWAY proxy (api/v1/docgen/download?key=...)
       → POST to graph/v20.0/{{phone-id}}/media  →  media_id
       → POST to graph/v20.0/{{phone-id}}/messages → document: { id: media_id }
       → Retries 3x with exponential backoff on failure
-  → sendReply() with the text message
+  → sendReply() with text or interactive message
 ```
 
 ## Key files

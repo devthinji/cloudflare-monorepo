@@ -162,6 +162,7 @@ machineRoutes.post('/advance', async (c) => {
     collectSub: result.context.collectSub,
     skuName:    result.context.liveSKU?.name,
     document:   result.document ?? null,
+    interactive: result.interactive ?? null,
     done:       result.done,
   }))
 })

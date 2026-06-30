@@ -4,7 +4,8 @@ import { getServiceStyle } from '@repo/middleware'
 import { parseIncomingMessage, parseStatusUpdate, verifySignature, type WaWebhookPayload } from '../../lib/whatsapp'
 import { SessionModel } from '../../models/session'
 import { MachineModel } from '../../models/machine'
-import { sendHelp, sendReset, sendError, sendReply } from '../outgoing/reply'
+import { sendHelp, sendReset, sendError, sendReply, sendInteractiveMessage } from '../outgoing/reply'
+import { sendTextMessage } from '../../lib/whatsapp'
 import { deliverDocument } from '../../pipelines'
 import type { Env } from '../../types/env'
 import { DEFAULT_AGENT } from '../../types/env'
@@ -88,15 +89,52 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
         return c.json(ok(null))
       }
 
+      // ── Exit/quit/reset confirmation flow ────────────────────────────────
+      if (session.pendingReset) {
+        if (['confirm_reset', 'yes', 'y', 'ndio', 'sawa'].includes(cmd)) {
+          session.pendingReset = false
+          await sessionModel.saveSession(from, session)
+          await machineModel.reset(from, agentSlug)
+          await sendReset(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
+          return c.json(ok(null))
+        }
+        if (['cancel_reset', 'no', 'n', 'cancel', 'back'].includes(cmd)) {
+          session.pendingReset = false
+          await sessionModel.saveSession(from, session)
+          await sendTextMessage(phoneNumberId, from, 'OK, continuing where we left off.', c.env.WHATSAPP_ACCESS_TOKEN)
+          return c.json(ok(null))
+        }
+        // Re-show confirmation
+        await sendInteractiveMessage(phoneNumberId, from, {
+          type: 'buttons',
+          body: 'Are you sure you want to reset the conversation?',
+          buttons: [
+            { id: 'confirm_reset', title: 'Yes, reset' },
+            { id: 'cancel_reset',  title: 'Cancel' },
+          ],
+        }, c.env.WHATSAPP_ACCESS_TOKEN)
+        return c.json(ok(null))
+      }
+
       if (['/reset', 'exit', 'quit'].includes(cmd)) {
-        await machineModel.reset(from, agentSlug)
-        await sendReset(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
+        session.pendingReset = true
+        await sessionModel.saveSession(from, session)
+        await sendInteractiveMessage(phoneNumberId, from, {
+          type: 'buttons',
+          body: 'Are you sure you want to reset the conversation?',
+          buttons: [
+            { id: 'confirm_reset', title: 'Yes, reset' },
+            { id: 'cancel_reset',  title: 'Cancel' },
+          ],
+        }, c.env.WHATSAPP_ACCESS_TOKEN)
+        log('confirm', 'exit/quit/reset — awaiting confirmation')
         return c.json(ok(null))
       }
 
       const data = await machineModel.advance(agentSlug, from, text)
       const reply = data?.data?.reply ?? ''
       const doc = data?.data?.document
+      const interactive = data?.data?.interactive
 
       await sessionModel.saveSession(from, session)
 
@@ -115,7 +153,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
       }
 
       if (reply) {
-        await sendReply(phoneNumberId, from, reply, c.env.WHATSAPP_ACCESS_TOKEN, messageId)
+        await sendReply(phoneNumberId, from, reply, c.env.WHATSAPP_ACCESS_TOKEN, messageId, interactive)
         log('reply', reply.slice(0, 200))
         log('stage', data?.data?.stage ?? '')
       }

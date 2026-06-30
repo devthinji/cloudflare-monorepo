@@ -554,6 +554,20 @@ export interface WaMediaDownloadInfo {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// InteractionHint — channel-agnostic hint from gateway machine
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface InteractionHint {
+  type: 'buttons' | 'list'
+  buttons?:       { id: string; title: string }[]
+  header?:        string
+  body?:          string
+  footer?:        string
+  buttonLabel?:   string
+  sections?:      { title?: string; rows: { id: string; title: string; description?: string }[] }[]
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Builder helpers (type-safe factories)
 // ═══════════════════════════════════════════════════════════════════════════
 

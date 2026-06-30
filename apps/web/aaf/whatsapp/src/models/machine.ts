@@ -11,7 +11,7 @@ export class MachineModel {
         body: JSON.stringify({ agentSlug, userId, channel: 'whatsapp', message: text }),
       })
     )
-    return res.json() as Promise<{ success: boolean; data?: { reply: string; stage: string; collectSub?: string; skuName?: string; document?: { docId: string; key: string; filename: string }; done: boolean } }>
+    return res.json() as Promise<{ success: boolean; data?: { reply: string; stage: string; collectSub?: string; skuName?: string; document?: { docId: string; key: string; filename: string }; interactive?: { type: 'buttons' | 'list'; buttons?: { id: string; title: string }[]; header?: string; body?: string; footer?: string; buttonLabel?: string; sections?: { title?: string; rows: { id: string; title: string; description?: string }[] }[] } | null; done: boolean } }>
   }
 
   async reset(userId: string, agentSlug: string): Promise<void> {

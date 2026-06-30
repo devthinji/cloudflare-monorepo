@@ -43,6 +43,8 @@ export type BlueprintEvent =
   | 'PAYMENT_FAILED'
   | 'PAYMENT_CANCELLED'
   | 'PAYMENT_SKIPPED'
+  | 'CONFIRM_GENERATION'
+  | 'CANCEL_GENERATION'
   | 'DOC_READY'
   | 'DOC_FAILED'
   | 'WANTS_ANOTHER'
@@ -55,6 +57,7 @@ export type CollectSub =
   | 'validation'
   | 'transaction'
   | 'transaction_validation'
+  | 'confirm_generation'
   | 'generation'
   | 'repetition_or_close'
 
@@ -93,7 +96,7 @@ export const TRANSITIONS: Record<string, Transition> = {
 
   // collect > validation
   'collect:validation:SUMMARY_CONFIRMED':      { nextStage: 'collect', nextSub: 'transaction' },
-  'collect:validation:PAYMENT_SKIPPED':        { nextStage: 'collect', nextSub: 'generation' },
+  'collect:validation:PAYMENT_SKIPPED':        { nextStage: 'collect', nextSub: 'confirm_generation' },
   'collect:validation:SUMMARY_REJECTED':       { nextStage: 'collect', nextSub: 'collection' }, // restart collection
 
   // collect > transaction
@@ -101,10 +104,14 @@ export const TRANSITIONS: Record<string, Transition> = {
   'collect:transaction:PAYMENT_FAILED':        { nextStage: 'collect', nextSub: 'transaction' }, // retry
 
   // collect > transaction_validation
-  'collect:transaction_validation:PAYMENT_COMPLETED': { nextStage: 'collect', nextSub: 'generation' },
+  'collect:transaction_validation:PAYMENT_COMPLETED': { nextStage: 'collect', nextSub: 'confirm_generation' },
   'collect:transaction_validation:PAYMENT_PENDING':   { nextStage: 'collect', nextSub: 'transaction_validation' }, // wait
   'collect:transaction_validation:PAYMENT_FAILED':    { nextStage: 'collect', nextSub: 'transaction' },
   'collect:transaction_validation:PAYMENT_CANCELLED': { nextStage: 'collect', nextSub: 'sku_select' },
+
+  // collect > confirm_generation
+  'collect:confirm_generation:CONFIRM_GENERATION': { nextStage: 'collect', nextSub: 'generation' },
+  'collect:confirm_generation:CANCEL_GENERATION':  { nextStage: 'collect', nextSub: 'sku_select' },
 
   // collect > generation
   'collect:generation:DOC_READY':              { nextStage: 'collect', nextSub: 'repetition_or_close' },
@@ -211,7 +218,7 @@ export const MESSAGES = {
   paymentPrompt: (currency: string, price: number, customerMessage: string) =>
     `💳 *Payment: ${currency} ${price}*\n\n${customerMessage}\n\nEnter your M-Pesa PIN when prompted. I'll send your document automatically once confirmed. ✅`,
   paymentFree: (skuName: string) =>
-    `🎉 *${skuName}* is free! Generating your document now...`,
+    `🎉 *${skuName}* is free! Let's prepare your document.`,
   paymentFailed:
     `⚠️ Payment initiation failed. Please try again or type /reset.`,
   paymentWaiting:
@@ -222,6 +229,10 @@ export const MESSAGES = {
     `❌ Payment cancelled. Send anything to try a new document.`,
   paymentTrackingLost:
     `Payment tracking lost. Type /reset to start over.`,
+
+  // confirm generation
+  confirmGeneration: (skuName: string, docFileName: string | undefined, price: number, currency: string) =>
+    `📄 *${skuName}* ready for delivery.\n\nDocument name: *${docFileName ?? `${skuName.toLowerCase().replace(/\s+/g, '-')}--${Date.now().toString(36)}`}*\n${price > 0 ? `Amount: *${currency} ${price}*` : '*Free*'}\n\nSend *Yes* to generate and deliver, or *No* to cancel.`,
 
   // generation
   docReady: (title: string) =>
