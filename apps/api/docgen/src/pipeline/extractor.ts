@@ -1,12 +1,30 @@
 import type { FieldSchema, SKUSchema } from './field-schema'
 import { call } from '@repo/llm-service'
 import type { DocgenWorkerEnv } from '@repo/types'
+import PizZip from 'pizzip'
+
+function unzipDocx(buffer: ArrayBuffer): { documentXml: string | null; rawText: string } {
+  try {
+    const zip = new PizZip(buffer)
+    const docFile = zip.file('word/document.xml')
+    const xmlText = docFile ? docFile.asText() : null
+    return {
+      documentXml: xmlText,
+      rawText: xmlText
+        ? xmlText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        : '',
+    }
+  } catch {
+    return { documentXml: null, rawText: '' }
+  }
+}
 
 // ── Step 1: Extract raw {placeholders} from docx XML ─────────────────────────
 
 export async function extractPlaceholders(docxBuffer: ArrayBuffer): Promise<string[]> {
-  const text    = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(docxBuffer)
-  const matches = [...text.matchAll(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g)]
+  const { documentXml } = unzipDocx(docxBuffer)
+  if (!documentXml) return []
+  const matches = [...documentXml.matchAll(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g)]
   const keys    = [...new Set(matches.map(m => m[1]).filter((k): k is string => !!k))]
   return keys
 }
@@ -82,13 +100,8 @@ export async function generateVisualDescription(
   templateName: string,
   documentType: string,
 ): Promise<string> {
-  const rawText = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(docxBuffer)
-
-  const readable = rawText
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .slice(0, 3000)
-    .trim()
+  const { rawText } = unzipDocx(docxBuffer)
+  const readable = rawText.slice(0, 3000).trim() || 'No readable content extracted.'
 
   const prompt = `You are a document designer. Based on the raw extracted content below from a "${documentType}" template called "${templateName}", write a short description (2-3 sentences) of what this document looks like, its purpose, and what it would be used for. Focus on the document's professional value.
 

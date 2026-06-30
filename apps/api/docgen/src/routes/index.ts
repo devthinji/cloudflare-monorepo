@@ -33,6 +33,7 @@ app.post('/api/v1/docgen/render',                DocumentsCtrl.renderSKUDoc)
 app.post('/api/v1/docgen/cv',                    DocumentsCtrl.legacyGenerateCv)
 app.get('/api/v1/docgen/documents',              DocumentsCtrl.listUserDocs)
 app.get('/api/v1/docgen/documents/all',          DocumentsCtrl.listAllDocs)
+app.get('/api/v1/docgen/download',               DocumentsCtrl.downloadDoc)
 
 app.onError((error, c) => { createLogger('docgen', c.env).error({ err: error }, 'unhandled docgen error'); return c.json(err('Internal server error'), 500) })
 

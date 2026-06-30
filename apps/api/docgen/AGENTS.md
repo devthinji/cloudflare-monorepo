@@ -51,6 +51,7 @@ POST   /api/v1/docgen/cv                     — legacy CV generation (deprecate
 -- Documents --
 GET    /api/v1/docgen/documents              — list docs for a user
 GET    /api/v1/docgen/documents/all          — list all docs (admin)
+GET    /api/v1/docgen/download               — download raw doc buffer (?key= or ?docId=)
 ```
 
 ## PipelineFactory
@@ -75,10 +76,11 @@ pipelineFactory.register('pdf', 'schema', async (file, env) => {
 
 After a new .docx is uploaded:
 1. PipelineFactory runs docx→schema
-2. Returns FieldSchema[] (key, label, type, required, hint)
-3. ConversationStep[] is auto-generated from field_schema
-4. Both are stored in the `skus` table
-5. SKU is created with is_active=0 pending admin review
+2. Unzips .docx with PizZip, reads word/document.xml
+3. Extracts {placeholder} keys via regex
+4. AI infers FieldSchema[] (key, label, type, required, hint)
+5. Both field_schema and a template record are stored in the `skus` table
+6. SKU is created with is_active=0 pending admin review
 
 ## Document rendering (POST /api/v1/docgen/render)
 
@@ -88,7 +90,7 @@ Request body:
   "skuId": "sku-cv-001",
   "fieldValues": { "full_name": "Jane Kamau", "phone": "0712345678", ... },
   "userId": "user-xxx",
-  "transactionId": "tx-xxx"
+  "agentSlug": "taji"
 }
 ```
 
@@ -96,9 +98,12 @@ Flow:
 1. Load SKU record from DB → get file_key
 2. Fetch .docx template from R2 (file_key)
 3. docxtemplater fills {placeholder} values
-4. Upload rendered .docx to R2 under `documents/<userId>/<id>.docx`
+4. Upload rendered .docx to R2 under `rendered/<userId>/<skuId>/<docId>.docx`
 5. Create document record in DB
-6. Return { fileUrl, documentId }
+6. Return { docId, title, fileUrl, key, filename }
+
+The `key` field is the R2 storage path used by the WhatsApp delivery pipeline
+to fetch the buffer and upload it to Meta as a media message.
 
 ## R2 key conventions
 

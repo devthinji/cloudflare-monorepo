@@ -1,7 +1,7 @@
 import { sendTextMessage, markAsRead } from '../../lib/whatsapp'
 
 export async function sendHelp(phoneNumberId: string, to: string, token: string) {
-  const text = `*Help*\n\n/reset — Clear conversation\n/help — This menu`
+  const text = `*Help*\n\n/reset, exit, quit — Clear conversation\n/help — This menu`
   await sendTextMessage(phoneNumberId, to, text, token)
 }
 

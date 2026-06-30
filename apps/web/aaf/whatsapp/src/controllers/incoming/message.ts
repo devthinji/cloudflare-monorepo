@@ -5,6 +5,7 @@ import { parseIncomingMessage, parseStatusUpdate, verifySignature, type WaWebhoo
 import { SessionModel } from '../../models/session'
 import { MachineModel } from '../../models/machine'
 import { sendHelp, sendReset, sendError, sendReply } from '../outgoing/reply'
+import { deliverDocument } from '../../pipelines'
 import type { Env } from '../../types/env'
 import { DEFAULT_AGENT } from '../../types/env'
 import { PHONE_NUMBER_ID_TO_AGENT } from '../../config/phone-agent-map'
@@ -87,7 +88,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
         return c.json(ok(null))
       }
 
-      if (cmd === '/reset') {
+      if (['/reset', 'exit', 'quit'].includes(cmd)) {
         await machineModel.reset(from, agentSlug)
         await sendReset(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
         return c.json(ok(null))
@@ -95,8 +96,23 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
 
       const data = await machineModel.advance(agentSlug, from, text)
       const reply = data?.data?.reply ?? ''
+      const doc = data?.data?.document
 
       await sessionModel.saveSession(from, session)
+
+      if (doc) {
+        log('deliver', `delivering ${doc.filename} (key: ${doc.key})`)
+        const result = await deliverDocument({
+          phoneNumberId,
+          to: from,
+          document: { key: doc.key, filename: doc.filename },
+          accessToken: c.env.WHATSAPP_ACCESS_TOKEN,
+          apiGateway: c.env.API_GATEWAY,
+        })
+        if (!result.delivered) {
+          log('deliver', `failed: ${result.error}`)
+        }
+      }
 
       if (reply) {
         await sendReply(phoneNumberId, from, reply, c.env.WHATSAPP_ACCESS_TOKEN, messageId)

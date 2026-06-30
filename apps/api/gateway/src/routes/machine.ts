@@ -141,7 +141,7 @@ machineRoutes.post('/advance', async (c) => {
             fieldValues: context.collectedFields,
           }),
         }))
-        const data = await res.json() as { success: boolean; data?: { fileUrl: string; title: string } }
+        const data = await res.json() as { success: boolean; data?: { docId: string; title: string; fileUrl: string; key: string; filename: string } }
         return data.success && data.data ? data.data : null
       } catch { return null }
     },
@@ -159,6 +159,7 @@ machineRoutes.post('/advance', async (c) => {
     stage:      result.context.stage,
     collectSub: result.context.collectSub,
     skuName:    result.context.liveSKU?.name,
+    document:   result.document ?? null,
     done:       result.done,
   }))
 })

@@ -94,7 +94,7 @@ export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   })
 
   log.info({ docId, skuId: body.skuId, userId: body.userId }, 'render:done')
-  return c.json(ok({ docId, title: `${sku.name}`, fileUrl, filename }), 201)
+  return c.json(ok({ docId, title: `${sku.name}`, fileUrl, key, filename }), 201)
 }
 
 import { skus } from './skus'
@@ -138,4 +138,29 @@ export async function listUserDocsByPath(c: Context<{ Bindings: DocgenWorkerEnv 
   const db = createDb(c.env.DB)
   const rows = await db.select().from(documents).where(eq(documents.userId, c.req.param('userId')!)).orderBy(desc(documents.createdAt))
   return c.json(ok(rows))
+}
+
+export async function downloadDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
+  const key = c.req.query('key')
+  const docId = c.req.query('docId')
+
+  let r2Key = key
+  if (!r2Key && docId) {
+    const db = createDb(c.env.DB)
+    const doc = await db.select().from(documents).where(eq(documents.id, docId)).get()
+    if (doc?.fileUrl) r2Key = doc.fileUrl
+  }
+
+  if (!r2Key) return c.json(err('key or docId required'), 400)
+
+  const obj = await c.env.DOCS_BUCKET.get(r2Key)
+  if (!obj) return c.json(err('File not found in storage'), 404)
+
+  const buffer = await obj.arrayBuffer()
+  return new Response(buffer, {
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': 'attachment; filename="document.docx"',
+    },
+  })
 }

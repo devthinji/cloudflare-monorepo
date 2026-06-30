@@ -98,6 +98,22 @@ WHATSAPP_PHONE_NUMBER_ID  — default phone number ID (env fallback for /send)
 
 For production: use the deployed worker URL instead of ngrok.
 
+## Document delivery pipeline
+
+When the gateway advance response includes a `document` field (after generation), the
+WhatsApp worker triggers the delivery pipeline before sending the reply text.
+
+```
+message.ts handleWebhook()
+  → machineModel.advance() → gets { reply, document }
+  → if document: pipelines.deliverDocument()
+      → GET buffer from docgen via API_GATEWAY proxy (api/v1/docgen/download?key=...)
+      → POST to graph/v20.0/{{phone-id}}/media  →  media_id
+      → POST to graph/v20.0/{{phone-id}}/messages → document: { id: media_id }
+      → Retries 3x with exponential backoff on failure
+  → sendReply() with the text message
+```
+
 ## Key files
 
 ```
@@ -107,10 +123,13 @@ src/
   controllers/
     incoming/
       verify.ts       — webhook verification (GET)
-      message.ts      — incoming message handler (POST)
+      message.ts      — incoming message handler (POST) — wires delivery pipeline
       health.ts       — health check
     outgoing/
       reply.ts        — send reply messages via Meta API
+  pipelines/
+    index.ts          — delivery orchestrator (retry, error handling, buffer fetch)
+    whatsapp-media.ts — upload buffer to Meta + send as media message
   lib/
     whatsapp.ts       — Meta Graph API client + payload types
     logger.ts         — Pino logger
@@ -124,4 +143,4 @@ src/
 - Do not skip signature verification — blocks spoofed webhook calls
 - Do not change phone format before forwarding — normalise then forward consistently
 - Do not send messages to users directly except as the reply to the gateway response
-  (document delivery messages are sent by api/agent via its own Meta API call)
+  (document delivery messages flow through the delivery pipeline in this worker)

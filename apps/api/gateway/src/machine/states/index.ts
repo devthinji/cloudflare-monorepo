@@ -38,6 +38,12 @@ export interface MachineContext {
   sessionCount: number; createdAt: string; updatedAt: string
 }
 
+export interface DocDelivery {
+  docId: string
+  key: string
+  filename: string
+}
+
 export function initialContext(userId: string, agentSlug: string, channel: string): MachineContext {
   return {
     userId, agentSlug, channel,

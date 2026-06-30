@@ -183,7 +183,7 @@ export const MESSAGES = {
     `Please enter a valid email address.`,
   fieldPrompt: (label: string, hint: string | undefined, idx: number, total: number, choices?: { label: string }[], required?: boolean) => {
     let msg = `_(${idx + 1}/${total})_ *${label}*`
-    if (hint) msg += `\n_e.g. ${hint}_`
+    if (hint) msg += `\n_${hint.startsWith('e.g.') ? hint : `e.g. ${hint}`}_`
     if (choices?.length) msg += `\n\n${choices.map((c, i) => `${i + 1}. ${c.label}`).join('\n')}`
     if (!required) msg += `\n_(optional — send a dash to skip)_`
     return msg

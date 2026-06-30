@@ -63,10 +63,18 @@ app.route('/webhooks',         paymentsRoutes)
 // No JWT required for internal service calls; still rate-limited
 app.route('/api/v1/machine',  machineRoutes)
 
-app.use('/api/v1/agent/*',    jwtMiddleware)
-app.use('/api/v1/docgen/*',   jwtMiddleware)
-app.use('/api/v1/templates/*', jwtMiddleware)  // admin: require JWT
-app.use('/api/v1/payments/*', jwtMiddleware)
+// Internal service calls (X-Internal header) bypass JWT
+function optionalJwt(): (c: any, next: any) => Promise<void> {
+  return async (c, next) => {
+    if (c.req.header('X-Internal')) return next()
+    return jwtMiddleware(c, next)
+  }
+}
+
+app.use('/api/v1/agent/*',    optionalJwt())
+app.use('/api/v1/docgen/*',   optionalJwt())
+app.use('/api/v1/templates/*', optionalJwt())  // admin: require JWT
+app.use('/api/v1/payments/*', optionalJwt())
 
 app.route('/api/v1/agent',    agentRoutes)
 app.route('/api/v1/docgen',   docgenRoutes)

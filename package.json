@@ -21,10 +21,5 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3"
-    ]
   }
 }

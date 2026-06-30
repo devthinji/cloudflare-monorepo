@@ -7,7 +7,7 @@
 
 import type { ConvertResult }   from '../factory'
 import type { DocgenWorkerEnv } from '@repo/types'
-import { inferFieldSchema, generateVisualDescription } from '../extractor'
+import { extractPlaceholders, inferFieldSchema, generateVisualDescription } from '../extractor'
 
 export async function docxToSchema(
   file:    ArrayBuffer,
@@ -17,11 +17,7 @@ export async function docxToSchema(
   const templateName  = (options?.templateName  as string) ?? 'Document'
   const documentType  = (options?.documentType  as string) ?? 'document'
 
-  // Extract {placeholder} keys from raw docx bytes
-  // docx is a ZIP — word/document.xml contains the text with placeholders
-  const text  = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(file)
-  const matches = [...text.matchAll(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g)]
-  const keys    = [...new Set(matches.map(m => m[1]!))]
+  const keys = await extractPlaceholders(file)
 
   if (keys.length === 0) {
     return { error: 'No {placeholders} found in this template. Make sure your template uses {field_name} syntax.' }

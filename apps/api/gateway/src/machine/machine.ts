@@ -5,7 +5,7 @@
 // To change the conversation flow, edit the blueprint in:
 //   steps/business-logic/version_1.ts
 
-import { type MachineContext, type LiveSKU, type LiveFieldSchema, initialContext } from './states'
+import { type MachineContext, type LiveSKU, type LiveFieldSchema, type DocDelivery, initialContext } from './states'
 import { BlueprintV1, type Blueprint, TRANSITIONS } from './steps/business-logic/version_1'
 
 // ─── External services (injected by the gateway route) ───────────────────────
@@ -17,13 +17,14 @@ export interface MachineServices {
   loadSKU:         (skuId: string)                => Promise<LiveSKU | null>
   initiatePayment: (ctx: MachineContext, sku: LiveSKU) => Promise<{ txId: string; checkoutRequestId: string; customerMessage: string } | null>
   checkPayment:    (checkoutRequestId: string)    => Promise<'pending' | 'completed' | 'failed'>
-  renderDoc:       (ctx: MachineContext, sku: LiveSKU) => Promise<{ fileUrl: string; title: string } | null>
+  renderDoc:       (ctx: MachineContext, sku: LiveSKU) => Promise<{ docId: string; title: string; fileUrl: string; key: string; filename: string } | null>
 }
 
 export interface AdvanceResult {
-  reply:   string
-  context: MachineContext
-  done:    boolean
+  reply:    string
+  context:  MachineContext
+  done:     boolean
+  document?: DocDelivery
 }
 
 // ─── Machine ──────────────────────────────────────────────────────────────────
@@ -261,6 +262,7 @@ export class ConversationMachine {
     return {
       reply:   M.docReady(result.title, result.fileUrl),
       context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, sessionCount: ctx.sessionCount + 1 },
+      document: { docId: result.docId, key: result.key, filename: result.filename },
       done:    false,
     }
   }

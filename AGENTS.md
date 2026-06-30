@@ -74,10 +74,16 @@ api/gateway  ConversationMachine
   Runs 4-stage state machine (see below)
   Calls AGENT_WORKER, DOCGEN_WORKER, PAYMENTS_WORKER via service bindings
   Persists session back to KV
-  Returns { reply: string }
+  Returns { reply, stage, collectSub, document?, done }
         │
         ▼
-aaf/whatsapp sends reply via Meta Graph API
+aaf/whatsapp
+  If reply has document metadata:
+    1. GET doc buffer from gateway → docgen proxy (/api/v1/docgen/download)
+    2. POST to graph/v20.0/{{phone-id}}/media  →  media_id
+    3. POST to graph/v20.0/{{phone-id}}/messages → document: { id: media_id }
+    4. Retries 3x on failure
+  Then sends reply text via Meta Graph API
 ```
 
 ### The 4-stage machine (apps/api/gateway/src/machine/)
@@ -226,9 +232,12 @@ Stage: Ready for end-to-end WhatsApp testing
 What works:
 - ConversationMachine (4-stage, blueprint-driven)
 - SKU loading + conversation step sequencing
+- Free SKUs (price=0) skip payment entirely via PAYMENT_SKIPPED event
 - M-Pesa STK push initiation
 - Payment callback handling
-- Document record creation
+- Document generation (docxtemplater fills {placeholder} from field_schema)
+- Document delivery pipeline (upload to Meta → media_id → send as document)
+- Download endpoint for raw R2 files
 - Dashboard: agents, SKUs, conversations, documents, users
 
 What needs e2e test confirmation:
@@ -238,10 +247,9 @@ What needs e2e test confirmation:
 - File delivered to user via WhatsApp media message
 
 Known gaps (post e2e, pre production):
-- docxtemplater rendering not wired to SKU field_schema values
-- No WhatsApp media message send for generated .docx
 - Elim agent flow not built (Taji first)
 - Dashboard SKU upload UI not connected to docgen /upload endpoint
+- WHATSAPP_APP_SECRET is placeholder in Doppler (webhook signature verification disabled in dev)
 
 ---
 
