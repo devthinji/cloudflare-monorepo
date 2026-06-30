@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { DocgenWorkerEnv } from '@repo/types'
 import { ok, now } from '@repo/utils'
 import { err } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 import { requestLogger } from '@repo/middleware'
 import * as TemplatesCtrl from '../controllers/templates'
 import * as SkusCtrl      from '../controllers/skus'
@@ -34,6 +34,6 @@ app.post('/api/v1/docgen/cv',                    DocumentsCtrl.legacyGenerateCv)
 app.get('/api/v1/docgen/documents',              DocumentsCtrl.listUserDocs)
 app.get('/api/v1/docgen/documents/all',          DocumentsCtrl.listAllDocs)
 
-app.onError((error, c) => { createLogger(c.env).error({ err: error }, 'unhandled docgen error'); return c.json(err('Internal server error'), 500) })
+app.onError((error, c) => { createLogger('docgen', c.env).error({ err: error }, 'unhandled docgen error'); return c.json(err('Internal server error'), 500) })
 
 export default app

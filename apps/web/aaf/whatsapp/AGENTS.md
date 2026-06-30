@@ -25,8 +25,8 @@ This worker is the only one exposed to the public internet on the WhatsApp side.
 
 ```
 GET  /health
-GET  /webhooks/whatsapp    — Meta webhook verification (challenge handshake)
-POST /webhooks/whatsapp    — incoming WhatsApp messages from Meta
+GET  /webhook    — Meta webhook verification (challenge handshake)
+POST /webhook    — incoming WhatsApp messages from Meta
 ```
 
 ## Webhook verification (GET)
@@ -87,7 +87,7 @@ WHATSAPP_PHONE_NUMBER_ID  — from Meta Business Manager → Phone Numbers
 ## Meta webhook setup
 
 1. Go to Meta Business Manager → WhatsApp → Configuration
-2. Callback URL: https://<ngrok-id>.ngrok-free.app/webhooks/whatsapp
+2. Callback URL: https://<ngrok-id>.ngrok-free.app/webhook
 3. Verify Token: same as WHATSAPP_VERIFY_TOKEN
 4. Subscribe to: messages
 
@@ -98,12 +98,16 @@ For production: use the deployed worker URL instead of ngrok.
 ```
 src/
   index.ts            — app setup
-  routes/index.ts     — GET + POST /webhooks/whatsapp
+  routes/index.ts     — GET + POST /webhook
   controllers/
-    webhook.ts        — handleWebhook, verifyWebhook
-    health.ts         — health check
+    incoming/
+      verify.ts       — webhook verification (GET)
+      message.ts      — incoming message handler (POST)
+      health.ts       — health check
+    outgoing/
+      reply.ts        — send reply messages via Meta API
   lib/
-    whatsapp.ts       — Meta Graph API client (send message)
+    whatsapp.ts       — Meta Graph API client + payload types
     logger.ts         — Pino logger
   types/
     env.ts            — Env binding types

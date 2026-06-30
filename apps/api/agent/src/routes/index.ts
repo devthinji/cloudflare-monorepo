@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { AgentWorkerEnv } from '@repo/types'
 import { ok, now } from '@repo/utils'
 import { err } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 import { AgentIntelligence } from '../controllers/config'
 import { requestLogger } from '@repo/middleware'
 import * as AgentsCtrl from '../controllers/agents'
@@ -33,6 +33,6 @@ app.get('/api/v1/agent/users',                   UsersCtrl.listUsers)
 app.get('/api/v1/agent/conversations/:userId',   ConvCtrl.listConversations)
 app.get('/api/v1/agent/conversations/:id/messages', ConvCtrl.listMessages)
 
-app.onError((e, c) => { createLogger(c.env).error({ err: e }, 'unhandled'); return c.json(err('Internal server error'), 500) })
+app.onError((e, c) => { createLogger('agent', c.env).error({ err: e }, 'unhandled'); return c.json(err('Internal server error'), 500) })
 
 export default app

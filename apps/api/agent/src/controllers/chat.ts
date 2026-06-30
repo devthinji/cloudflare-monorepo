@@ -1,10 +1,10 @@
 import type { Context } from 'hono'
 import type { AgentWorkerEnv } from '@repo/types'
 import { ok, err } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 
 export async function chat(c: Context<{ Bindings: AgentWorkerEnv }>) {
-  const log  = createLogger(c.env)
+  const log  = createLogger('agent', c.env)
   const body = await c.req.json() as { agentSlug: string; userId: string; message?: string; channel?: string; type?: string }
   if (!body.agentSlug || !body.userId) return c.json(err('agentSlug, userId required'), 400)
   const type = body.type ?? 'chat'

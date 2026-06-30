@@ -1,14 +1,14 @@
 import { Hono } from 'hono'
 import type { GatewayEnv } from '@repo/types'
 import { ok, err, signJwt, verifyJwt, generateId, now } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 
 export const authRoutes = new Hono<{ Bindings: GatewayEnv }>()
 
 // ── Register ──────────────────────────────────────────────────────────────────
 
 authRoutes.post('/register', async (c) => {
-  const log = createLogger(c.env)
+  const log = createLogger('gateway', c.env)
   let body: { email: string; password: string; name: string }
 
   try {
@@ -42,7 +42,7 @@ authRoutes.post('/register', async (c) => {
 // ── Login ─────────────────────────────────────────────────────────────────────
 
 authRoutes.post('/login', async (c) => {
-  const log = createLogger(c.env)
+  const log = createLogger('gateway', c.env)
   let body: { email: string; password: string }
 
   try {

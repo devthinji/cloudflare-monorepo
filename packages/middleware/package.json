@@ -13,7 +13,8 @@
   "dependencies": {
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
-    "hono": "^4.0.0"
+    "hono": "^4.0.0",
+    "pino": "^9.2.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240529.0",

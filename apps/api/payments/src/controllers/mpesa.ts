@@ -2,13 +2,13 @@ import type { Context } from 'hono'
 import { eq } from 'drizzle-orm'
 import type { PaymentsWorkerEnv } from '@repo/types'
 import { ok, err, generateId, now } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 import { transactions } from '../models'
 import { createDb } from '../models'
 import { getDarajaToken, stkPush, stkQuery, type DarajaEnv } from '../lib/daraja'
 
 export async function initiateStkPush(c: Context<{ Bindings: PaymentsWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('payments', c.env)
   const db = createDb(c.env.DB)
 
   const body = await c.req.json() as {
@@ -65,7 +65,7 @@ export async function initiateStkPush(c: Context<{ Bindings: PaymentsWorkerEnv }
 }
 
 export async function queryStkPush(c: Context<{ Bindings: PaymentsWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('payments', c.env)
   const checkoutRequestId = c.req.param('checkoutRequestId')!
 
   try {

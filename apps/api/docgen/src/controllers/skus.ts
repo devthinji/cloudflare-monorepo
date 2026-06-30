@@ -3,7 +3,7 @@ import { eq, desc } from 'drizzle-orm'
 import { sqliteTable, text, real, integer } from 'drizzle-orm/sqlite-core'
 import type { DocgenWorkerEnv } from '@repo/types'
 import { ok, err, generateId, now, slugify } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 import { createDb } from '../models'
 import { pipelineFactory } from '../pipeline/factory'
 
@@ -29,7 +29,7 @@ export const skus = sqliteTable('skus', {
 })
 
 export async function uploadSKU(c: Context<{ Bindings: DocgenWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   const db = createDb(c.env.DB)
 
   const formData = await c.req.formData()
@@ -105,7 +105,7 @@ export async function getSKU(c: Context<{ Bindings: DocgenWorkerEnv }>) {
 
 export async function updateSKU(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const db = createDb(c.env.DB)
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   const body = await c.req.json() as {
     name?: string; price?: number; agentSlug?: string; fieldSchema?: unknown[]
     conversationSteps?: unknown; isActive?: boolean; description?: string
@@ -129,7 +129,7 @@ export async function updateSKU(c: Context<{ Bindings: DocgenWorkerEnv }>) {
 
 export async function deleteSKU(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const db = createDb(c.env.DB)
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   const row = await db.select().from(skus).where(eq(skus.id, c.req.param('id')!)).get()
   if (!row) return c.json(err('SKU not found'), 404)
   await c.env.DOCS_BUCKET.delete(row.fileKey).catch(() => {})

@@ -181,6 +181,9 @@ importers:
 
   apps/web/aaf/sms:
     dependencies:
+      '@repo/middleware':
+        specifier: workspace:*
+        version: link:../../../../packages/middleware
       '@repo/types':
         specifier: workspace:*
         version: link:../../../../packages/types
@@ -190,9 +193,6 @@ importers:
       hono:
         specifier: ^4.4.0
         version: 4.12.27
-      pino:
-        specifier: ^9.2.0
-        version: 9.14.0
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240524.0
@@ -206,6 +206,9 @@ importers:
 
   apps/web/aaf/telegram:
     dependencies:
+      '@repo/middleware':
+        specifier: workspace:*
+        version: link:../../../../packages/middleware
       '@repo/types':
         specifier: workspace:*
         version: link:../../../../packages/types
@@ -215,9 +218,6 @@ importers:
       hono:
         specifier: ^4.4.0
         version: 4.12.27
-      pino:
-        specifier: ^9.2.0
-        version: 9.14.0
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240524.0
@@ -385,6 +385,9 @@ importers:
       hono:
         specifier: ^4.0.0
         version: 4.12.27
+      pino:
+        specifier: ^9.2.0
+        version: 9.14.0
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240529.0

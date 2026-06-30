@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { ok, err } from '@repo/utils'
-import { createLogger } from './lib/logger'
+import { createLogger } from '@repo/middleware'
 import {
   parseIncomingMessage, sendTextMessage, type TgUpdate,
 } from './lib/telegram'
@@ -47,7 +47,7 @@ app.get('/setup', async (c) => {
 // ── Incoming update ───────────────────────────────────────────────────────────
 
 app.post('/webhooks/telegram', async (c) => {
-  const log = createLogger(c.env)
+  const log = createLogger('telegram', c.env)
 
   // Verify Telegram webhook secret header
   const secret = c.req.header('X-Telegram-Bot-Api-Secret-Token')
@@ -103,7 +103,7 @@ app.get('/health', (c) =>
 )
 
 app.onError((error, c) => {
-  createLogger(c.env).error({ err: error }, 'aaf-telegram:unhandled')
+  createLogger('telegram', c.env).error({ err: error }, 'aaf-telegram:unhandled')
   return c.json(err('Internal server error'), 500)
 })
 

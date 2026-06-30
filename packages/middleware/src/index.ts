@@ -1,4 +1,6 @@
-export { createLogger, requestLogger } from './request-logger'
+export { createLogger, requestLogger } from './logger'
+export type { LoggerEnv } from './logger'
+export { legacyLogger } from './request-logger'
 export type { LogLevel } from './request-logger'
 export { rateLimiter } from './rate-limiter'
 export type { RateLimiterOptions } from './rate-limiter'

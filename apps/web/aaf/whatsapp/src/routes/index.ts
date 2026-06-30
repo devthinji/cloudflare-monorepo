@@ -1,15 +1,16 @@
 import { Hono } from 'hono'
 import type { Env } from '../types/env'
 import { requestLogger } from '@repo/middleware'
-import { verifyWebhook, handleWebhook } from '../controllers/webhook'
-import { healthCheck } from '../controllers/health'
+import { verifyWebhook } from '../controllers/incoming/verify'
+import { handleWebhook } from '../controllers/incoming/message'
+import { healthCheck } from '../controllers/incoming/health'
 
 const router = new Hono<{ Bindings: Env }>()
 
 router.use('*', requestLogger('whatsapp'))
 
-router.get('/webhooks/whatsapp', verifyWebhook)
-router.post('/webhooks/whatsapp', handleWebhook)
+router.get('/webhook', verifyWebhook)
+router.post('/webhook', handleWebhook)
 router.get('/health', healthCheck)
 
 export { router }

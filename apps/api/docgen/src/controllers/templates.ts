@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import { eq, desc } from 'drizzle-orm'
 import type { DocgenWorkerEnv } from '@repo/types'
 import { ok, err, generateId, now, slugify } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 import { templates } from '../models'
 import { createDb } from '../models'
 import { runExtractionPipeline } from '../pipeline/extractor'
@@ -29,7 +29,7 @@ export async function getTemplatesByAgent(c: Context<{ Bindings: DocgenWorkerEnv
 }
 
 export async function uploadTemplate(c: Context<{ Bindings: DocgenWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   let formData: FormData
   try { formData = await c.req.formData() } catch { return c.json(err('Expected multipart/form-data'), 400) }
 
@@ -87,7 +87,7 @@ export async function uploadTemplate(c: Context<{ Bindings: DocgenWorkerEnv }>) 
 }
 
 export async function updateTemplate(c: Context<{ Bindings: DocgenWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   const db = createDb(c.env.DB)
   const id = c.req.param('id')!
   const body = await c.req.json() as {
@@ -114,7 +114,7 @@ export async function updateTemplate(c: Context<{ Bindings: DocgenWorkerEnv }>) 
 }
 
 export async function deleteTemplate(c: Context<{ Bindings: DocgenWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   const db = createDb(c.env.DB)
   const id = c.req.param('id')!
   const existing = await db.select().from(templates).where(eq(templates.id, id)).get()

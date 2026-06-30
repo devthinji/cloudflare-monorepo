@@ -3,7 +3,7 @@ import { eq }            from 'drizzle-orm'
 import { createDb, users } from '../models'
 import type { AgentWorkerEnv } from '@repo/types'
 import { ok, err, now } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 
 export async function getUser(c: Context<{ Bindings: AgentWorkerEnv }>) {
   const db  = createDb(c.env.DB)
@@ -26,7 +26,7 @@ export async function getUser(c: Context<{ Bindings: AgentWorkerEnv }>) {
 
 export async function createOrUpdateUser(c: Context<{ Bindings: AgentWorkerEnv }>) {
   const db   = createDb(c.env.DB)
-  const log  = createLogger(c.env)
+  const log  = createLogger('agent', c.env)
   const body = await c.req.json() as {
     userId:     string
     name:       string
@@ -68,7 +68,7 @@ export async function createOrUpdateUser(c: Context<{ Bindings: AgentWorkerEnv }
 
 export async function patchUser(c: Context<{ Bindings: AgentWorkerEnv }>) {
   const db   = createDb(c.env.DB)
-  const log  = createLogger(c.env)
+  const log  = createLogger('agent', c.env)
   const body = await c.req.json() as {
     name?: string; phone?: string; agentSlug?: string; isBlocked?: boolean; metadata?: Record<string, unknown>
   }

@@ -4,7 +4,7 @@ import { secureHeaders } from 'hono/secure-headers'
 import { timing } from 'hono/timing'
 import type { GatewayEnv } from '@repo/types'
 import { err } from '@repo/utils'
-import { createLogger } from './lib/logger'
+import { createLogger } from '@repo/middleware'
 import { jwtMiddleware, requestLogger } from '@repo/middleware'
 
 import { healthRoutes }   from './routes/health'
@@ -80,7 +80,7 @@ app.notFound((c) => c.json(err('Route not found'), 404))
 // ─── Error handler ────────────────────────────────────────────────────────────
 
 app.onError((error, c) => {
-  const log = createLogger(c.env)
+  const log = createLogger('gateway', c.env)
   log.error({ err: error }, 'unhandled gateway error')
   return c.json(err('Internal server error'), 500)
 })

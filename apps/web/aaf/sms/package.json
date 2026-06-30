@@ -8,10 +8,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/middleware": "workspace:*",
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
-    "hono":        "^4.4.0",
-    "pino":        "^9.2.0"
+    "hono":        "^4.4.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240524.0",

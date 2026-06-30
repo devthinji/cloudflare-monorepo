@@ -2,14 +2,14 @@ import type { Context } from 'hono'
 import { eq, desc } from 'drizzle-orm'
 import type { DocgenWorkerEnv } from '@repo/types'
 import { ok, err, generateId, now } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 import { templates, documents, createDb } from '../models'
 import { renderTemplate } from '../lib/renderer'
 import { getTemplateBuffer, storeRenderedDoc, docDownloadKey } from '../lib/storage'
 import { generateCv, type CvData } from '../lib/cv'
 
 export async function renderDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   const db = createDb(c.env.DB)
   const body = await c.req.json() as {
     userId: string; agentSlug: string; templateId: string
@@ -55,7 +55,7 @@ export async function renderDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
 }
 
 export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   const db = createDb(c.env.DB)
   const body = await c.req.json() as {
     userId: string; skuId: string; fieldValues: Record<string, unknown>
@@ -100,7 +100,7 @@ export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
 import { skus } from './skus'
 
 export async function legacyGenerateCv(c: Context<{ Bindings: DocgenWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('docgen', c.env)
   const db = createDb(c.env.DB)
   const body = await c.req.json() as { userId: string; agentSlug: string; data: CvData }
   if (!body.userId || !body.agentSlug || !body.data?.fullName) return c.json(err('userId, agentSlug, data.fullName required'), 400)

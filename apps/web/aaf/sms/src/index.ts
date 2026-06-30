@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { ok, err } from '@repo/utils'
-import { createLogger } from './lib/logger'
+import { createLogger } from '@repo/middleware'
 import { parseIncomingSms, sendSms } from './lib/africastalking'
 
 interface Env {
@@ -23,7 +23,7 @@ const app = new Hono<{ Bindings: Env }>()
 // ── Incoming SMS (Africa's Talking POST callback) ─────────────────────────────
 
 app.post('/webhooks/sms', async (c) => {
-  const log  = createLogger(c.env)
+  const log  = createLogger('sms', c.env)
   const body = await c.req.parseBody() as Record<string, string>
 
   const incoming = parseIncomingSms(body)
@@ -77,7 +77,7 @@ app.post('/webhooks/sms', async (c) => {
 // ── Delivery report callback ──────────────────────────────────────────────────
 
 app.post('/webhooks/sms/delivery', async (c) => {
-  const log  = createLogger(c.env)
+  const log  = createLogger('sms', c.env)
   const body = await c.req.parseBody() as Record<string, string>
   log.info({ status: body.status, id: body.id, number: body.phoneNumber }, 'sms:delivery')
   return c.text('', 200)
@@ -90,7 +90,7 @@ app.get('/health', (c) =>
 )
 
 app.onError((error, c) => {
-  createLogger(c.env).error({ err: error }, 'aaf-sms:unhandled')
+  createLogger('sms', c.env).error({ err: error }, 'aaf-sms:unhandled')
   return c.json(err('Internal server error'), 500)
 })
 

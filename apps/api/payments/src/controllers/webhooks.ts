@@ -2,13 +2,13 @@ import type { Context } from 'hono'
 import { eq } from 'drizzle-orm'
 import type { PaymentsWorkerEnv } from '@repo/types'
 import { now } from '@repo/utils'
-import { createLogger } from '../lib/logger'
+import { createLogger } from '@repo/middleware'
 import { transactions } from '../models'
 import { createDb } from '../models'
 import { parseStkCallback } from '../lib/daraja'
 
 export async function handleMpesaCallback(c: Context<{ Bindings: PaymentsWorkerEnv }>) {
-  const log = createLogger(c.env)
+  const log = createLogger('payments', c.env)
   const db = createDb(c.env.DB)
   const raw = await c.req.json() as Record<string, unknown>
 
