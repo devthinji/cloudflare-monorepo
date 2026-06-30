@@ -5,7 +5,7 @@ export type MachineStage =
   | 'farewell'
   | 'closed'
 
-export type UserClass =
+export type CustomerClass =
   | 'new_unregistered'
   | 'return_unregistered'
   | 'registered'
@@ -31,7 +31,7 @@ export interface LiveSKU {
 
 export interface MachineContext {
   userId: string; agentSlug: string; channel: string; stage: MachineStage
-  userClass: UserClass | null; collectSub: CollectSubState | null
+  customerClass: CustomerClass | null; collectSub: CollectSubState | null
   isRegistered: boolean; profileName?: string
   liveSKU?: LiveSKU; currentFieldIdx: number; collectedFields: Record<string, unknown>
   checkoutRequestId?: string; txId?: string
@@ -41,7 +41,7 @@ export interface MachineContext {
 export function initialContext(userId: string, agentSlug: string, channel: string): MachineContext {
   return {
     userId, agentSlug, channel,
-    stage: 'identify', userClass: null, collectSub: null,
+    stage: 'identify', customerClass: null, collectSub: null,
     isRegistered: false, currentFieldIdx: 0, collectedFields: {},
     sessionCount: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   }

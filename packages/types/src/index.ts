@@ -51,7 +51,8 @@ export interface PaymentsWorkerEnv extends BaseWorkerEnv {
 export interface AafWorkerEnv extends BaseWorkerEnv {
   API_GATEWAY:             Fetcher
   AAF_KV:                  KVNamespace
-  WHATSAPP_TOKEN:          string
+  WHATSAPP_ACCESS_TOKEN:   string
+  WHATSAPP_APP_SECRET:     string
   WHATSAPP_VERIFY_TOKEN:   string
   WHATSAPP_PHONE_NUMBER_ID: string
 }

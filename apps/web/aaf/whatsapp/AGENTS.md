@@ -43,18 +43,22 @@ Must return 200 with the challenge value for Meta to activate the webhook.
 
 ```
 1. Receive POST from Meta
-2. Verify X-Hub-Signature-256 header (HMAC-SHA256 of body with WHATSAPP_TOKEN)
-3. Parse body → extract: waMessageId, from (phone), text.body
-4. Deduplicate: check AAF_KV for waMessageId (Meta sometimes sends duplicates)
-5. Normalise phone: strip leading 0 → prefix +254 if Kenyan local format
+2. Verify X-Hub-Signature-256 header (HMAC-SHA256 of body with WHATSAPP_APP_SECRET — Meta App Secret)
+3. Parse body → extract: waMessageId, from (phone), text.body, phoneNumberId (metadata)
+4. Route to agent via PHONE_NUMBER_ID_TO_AGENT map in config/phone-agent-map.ts:
+     1038436689362682 → taji
+     729899760214979  → elim
+     122108114672001278 → test
+5. Deduplicate: check AAF_KV for waMessageId (Meta sometimes sends duplicates)
+6. Normalise phone: strip leading 0 → prefix +254 if Kenyan local format
    Examples:
      0712345678  → +254712345678
      254712345678 → +254712345678
      +254712345678 → unchanged
-6. POST to API_GATEWAY: /api/v1/machine/advance
+8. POST to API_GATEWAY: /api/v1/machine/advance
    Body: { phone, message, channel: "whatsapp" }
-7. Receive { reply } from gateway
-8. POST reply to Meta Graph API:
+9. Receive { reply } from gateway
+10. POST reply to Meta Graph API:
    https://graph.facebook.com/v18.0/<PHONE_NUMBER_ID>/messages
    Body: { messaging_product, to: phone, type: "text", text: { body: reply } }
 ```
@@ -79,9 +83,10 @@ function normalisePhone(raw: string): string {
 ## Required secrets (via Doppler)
 
 ```
-WHATSAPP_TOKEN            — Meta permanent access token (from Meta Business Manager)
+WHATSAPP_ACCESS_TOKEN     — Meta permanent access token (from Meta Business Manager)
+WHATSAPP_APP_SECRET       — Meta App Secret (from Meta Developer Portal → App Settings → Basic)
 WHATSAPP_VERIFY_TOKEN     — any string, must match Meta webhook config
-WHATSAPP_PHONE_NUMBER_ID  — from Meta Business Manager → Phone Numbers
+WHATSAPP_PHONE_NUMBER_ID  — default phone number ID (env fallback for /send)
 ```
 
 ## Meta webhook setup

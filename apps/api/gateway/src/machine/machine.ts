@@ -62,18 +62,18 @@ export class ConversationMachine {
     const user = await this.svc.lookupUser(ctx.userId)
 
     if (user.found && user.registered) {
-      const t = T['identify:USER_REGISTERED']!
-      const next: MachineContext = { ...ctx, stage: t.nextStage, collectSub: t.nextSub ?? null, userClass: 'registered', isRegistered: true, profileName: user.name }
-      return { reply: await this.skuMenu(ctx.agentSlug, M.greetRegistered(user.name ?? '')), context: next, done: false }
+      const t = T['identify:CUSTOMER_REGISTERED']!
+      const next: MachineContext = { ...ctx, stage: t.nextStage, collectSub: t.nextSub ?? null, customerClass: 'registered', isRegistered: true, profileName: user.name }
+      return { reply: await this.skuMenu(ctx.agentSlug, M.greetRegistered(user.name ?? '', ctx.agentSlug)), context: next, done: false }
     }
 
     if (user.found && !user.registered) {
-      const t = T['identify:USER_RETURNING_UNREGISTERED']!
-      return { reply: M.greetReturningUnregistered, context: { ...ctx, stage: t.nextStage, userClass: 'return_unregistered' }, done: false }
+      const t = T['identify:CUSTOMER_RETURNING_UNREGISTERED']!
+      return { reply: M.greetReturningUnregistered(ctx.agentSlug), context: { ...ctx, stage: t.nextStage, customerClass: 'return_unregistered' }, done: false }
     }
 
-    const t = T['identify:USER_NEW']!
-    return { reply: M.greetNew, context: { ...ctx, stage: t.nextStage, userClass: 'new_unregistered' }, done: false }
+    const t = T['identify:CUSTOMER_NEW']!
+    return { reply: M.greetNew(ctx.agentSlug), context: { ...ctx, stage: t.nextStage, customerClass: 'new_unregistered' }, done: false }
   }
 
   // ── Stage: auth ───────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ export class ConversationMachine {
     await this.svc.registerUser(ctx.userId, name)
     const t = T['auth:NAME_VALID']!
     const next: MachineContext = { ...ctx, stage: t.nextStage, collectSub: t.nextSub ?? null, isRegistered: true, profileName: name }
-    return { reply: await this.skuMenu(ctx.agentSlug, M.registrationSuccess(name)), context: next, done: false }
+    return { reply: await this.skuMenu(ctx.agentSlug, M.registrationSuccess(name, ctx.agentSlug)), context: next, done: false }
   }
 
   // ── Stage: collect ────────────────────────────────────────────────────────

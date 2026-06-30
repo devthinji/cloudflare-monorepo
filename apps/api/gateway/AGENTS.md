@@ -55,7 +55,7 @@ Session state is stored in SESSIONS_KV under key `session:<phone>` as serialised
 ### 4 stages
 
 ```
-identify   — look up phone in users table, classify as new/returning/registered
+identify   — look up phone in customers table, classify as new/returning/registered
 auth       — collect user's name (first-time only)
 collect    — SKU selection → field collection → payment → doc generation → repeat?
 farewell   — session closure

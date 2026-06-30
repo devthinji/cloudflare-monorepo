@@ -125,3 +125,18 @@ export async function sendDocument(
   })
   if (!res.ok) throw new Error(`WA send doc failed: ${res.status} ${await res.text()}`)
 }
+
+export async function markAsRead(
+  phoneNumberId: string, messageId: string, accessToken: string
+): Promise<void> {
+  const res = await fetch(`${GRAPH_URL}/${phoneNumberId}/messages`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: messageId,
+    }),
+  })
+  if (!res.ok) throw new Error(`WA markRead failed: ${res.status} ${await res.text()}`)
+}

@@ -112,7 +112,8 @@ Tables and owners:
 | Table          | Owner   | Purpose                                      |
 |----------------|---------|----------------------------------------------|
 | agents         | gateway | Agent config (slug, system prompt, model)    |
-| users          | gateway | WhatsApp users identified by phone number    |
+| admins         | gateway | Dashboard admin users (login, roles)          |
+| customers      | gateway | WhatsApp customers identified by phone number |
 | conversations  | gateway | One session per user per agent               |
 | messages       | gateway | All turns in every conversation              |
 | documents      | docgen  | Generated file records (R2 URL)              |
@@ -168,7 +169,7 @@ MPESA_PASSKEY         (Daraja sandbox)
 MPESA_SHORTCODE       174379
 MPESA_CALLBACK_URL    https://<your-ngrok-url>/api/v1/payments/mpesa/callback
 MPESA_ENVIRONMENT     sandbox
-WHATSAPP_TOKEN        (Meta access token)
+WHATSAPP_ACCESS_TOKEN (Meta access token)
 WHATSAPP_VERIFY_TOKEN (any string — must match Meta dashboard)
 WHATSAPP_PHONE_NUMBER_ID (from Meta Business Manager)
 ```

@@ -28,7 +28,7 @@ One row = one deployed agent.
 | api_keys        | TEXT    | encrypted JSON                           |
 | is_active       | INTEGER | 1 = active                               |
 
-### users
+### customers
 
 Anyone who has sent a WhatsApp message to any agent.
 
@@ -38,10 +38,27 @@ Anyone who has sent a WhatsApp message to any agent.
 | name          | TEXT    | Collected during auth stage                |
 | phone         | TEXT    | +254XXXXXXXXX format                       |
 | channel       | TEXT    | "whatsapp"                                 |
-| agent_slug    | TEXT    | Which agent this user talks to             |
+| agent_slug    | TEXT    | Which agent this customer talks to          |
 | is_registered | INTEGER | 1 = name collected, auth complete          |
 | is_blocked    | INTEGER | 1 = blocked from service                   |
-| metadata      | TEXT    | JSON: any extra user data                  |
+| metadata      | TEXT    | JSON: any extra customer data              |
+
+### admins
+
+Dashboard admin users with login credentials.
+
+| Column     | Type    | Notes                                      |
+|------------|---------|--------------------------------------------|
+| id         | TEXT PK | ULID                                       |
+| name       | TEXT    | Full name                                  |
+| email      | TEXT    | Login email (unique)                       |
+| phone      | TEXT    | Contact phone                              |
+| role       | TEXT    | "admin" or "superadmin"                    |
+| hash       | TEXT    | bcrypt password hash                       |
+| contacts   | TEXT    | JSON: extra contact info                   |
+| is_active  | INTEGER | 1 = active                                 |
+| created_at | TEXT    | ISO 8601                                   |
+| updated_at | TEXT    | ISO 8601                                   |
 
 ### conversations
 

@@ -1,5 +1,5 @@
 export * from './agents'
 export * from './chat'
 export * from './config'
-export * from './users'
+export * from './customers'
 export * from './conversations'

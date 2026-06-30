@@ -16,6 +16,7 @@ binding = "API_GATEWAY"
 service = "api-gateway"
 
 # Secrets:
-#   WHATSAPP_TOKEN
-#   WHATSAPP_VERIFY_TOKEN
+#   WHATSAPP_ACCESS_TOKEN   (Meta permanent access token)
+#   WHATSAPP_APP_SECRET     (Meta App Secret — for webhook signature verification)
+#   WHATSAPP_VERIFY_TOKEN   (webhook verify token)
 #   WHATSAPP_PHONE_NUMBER_ID

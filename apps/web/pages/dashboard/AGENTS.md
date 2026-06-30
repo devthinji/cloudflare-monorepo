@@ -6,7 +6,7 @@
 ## Purpose
 
 Admin dashboard for the platform. Allows the operator to manage agents, SKUs,
-view transactions, conversations, documents, and users. All data is fetched
+view transactions, conversations, documents, and customers. All data is fetched
 from api/gateway which proxies to the appropriate API worker.
 
 ## Type

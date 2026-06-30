@@ -24,9 +24,9 @@ export type BlueprintStage =
   | 'closed'
 
 export type BlueprintEvent =
-  | 'USER_NEW'
-  | 'USER_RETURNING_UNREGISTERED'
-  | 'USER_REGISTERED'
+  | 'CUSTOMER_NEW'
+  | 'CUSTOMER_RETURNING_UNREGISTERED'
+  | 'CUSTOMER_REGISTERED'
   | 'NAME_VALID'
   | 'NAME_INVALID'
   | 'SKU_CHOSEN'
@@ -68,9 +68,9 @@ export interface Transition {
 
 export const TRANSITIONS: Record<string, Transition> = {
   // identify
-  'identify:USER_NEW':                         { nextStage: 'auth' },
-  'identify:USER_RETURNING_UNREGISTERED':      { nextStage: 'auth' },
-  'identify:USER_REGISTERED':                  { nextStage: 'collect', nextSub: 'sku_select' },
+  'identify:CUSTOMER_NEW':                         { nextStage: 'auth' },
+  'identify:CUSTOMER_RETURNING_UNREGISTERED':      { nextStage: 'auth' },
+  'identify:CUSTOMER_REGISTERED':                  { nextStage: 'collect', nextSub: 'sku_select' },
 
   // auth
   'auth:NAME_VALID':                           { nextStage: 'collect', nextSub: 'sku_select' },
@@ -108,7 +108,7 @@ export const TRANSITIONS: Record<string, Transition> = {
   'collect:repetition_or_close:WANTS_TO_CLOSE':{ nextStage: 'farewell' },
 
   // farewell / closed → reopen
-  'closed:USER_REGISTERED':                   { nextStage: 'collect', nextSub: 'sku_select' },
+  'closed:CUSTOMER_REGISTERED':                   { nextStage: 'collect', nextSub: 'sku_select' },
 }
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
@@ -137,20 +137,28 @@ export const GUARDS = {
 // All user-facing strings live here.
 // Supports simple template interpolation via {{key}}.
 
+function agentDisplayName(slug: string): string {
+  return slug.charAt(0).toUpperCase() + slug.slice(1)
+}
+
 export const MESSAGES = {
   // identify
-  greetNew:
-    `👋 Welcome! I help you create professional documents — CVs, letters, NDAs and more — delivered right here on WhatsApp.\n\nWhat's your name to get started?`,
-  greetReturningUnregistered:
-    `👋 Welcome back! You haven't finished setting up your account.\n\nWhat's your name?`,
-  greetRegistered: (name: string) =>
-    `Welcome back, *${name}*! 👋`,
+  greetNew: (agentSlug: string) => {
+    const name = agentDisplayName(agentSlug)
+    return `👋 Hi! I'm *${name}*. I help you create professional documents — CVs, letters, NDAs and more — delivered right here on WhatsApp.\n\nWhat's your name to get started?`
+  },
+  greetReturningUnregistered: (agentSlug: string) => {
+    const name = agentDisplayName(agentSlug)
+    return `👋 Welcome back! I'm *${name}*. You haven't finished setting up your account.\n\nWhat's your name?`
+  },
+  greetRegistered: (name: string, agentSlug: string) =>
+    `Welcome back, *${name}*! I'm *${agentDisplayName(agentSlug)}*. 👋`,
 
   // auth
   nameInvalid:
     `Please enter your name (at least 2 characters).`,
-  registrationSuccess: (name: string) =>
-    `✅ *Welcome, ${name}!* You're all set.`,
+  registrationSuccess: (name: string, agentSlug: string) =>
+    `✅ *Welcome, ${name}!* I'm *${agentDisplayName(agentSlug)}*. You're all set.`,
 
   // sku select
   skuMenuHeading: (heading: string, skus: { name: string; price: number; currency: string }[]) =>

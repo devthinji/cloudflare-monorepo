@@ -31,7 +31,7 @@ MPESA_PASSKEY         (Daraja sandbox)
 MPESA_SHORTCODE       174379
 MPESA_CALLBACK_URL    https://<your-ngrok-url>/api/v1/payments/mpesa/callback
 MPESA_ENVIRONMENT     sandbox
-WHATSAPP_TOKEN        (Meta access token)
+WHATSAPP_ACCESS_TOKEN (Meta access token)
 WHATSAPP_VERIFY_TOKEN (any string — must match Meta dashboard)
 WHATSAPP_PHONE_NUMBER_ID (from Meta Business Manager)
 ```

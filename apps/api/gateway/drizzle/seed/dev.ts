@@ -51,36 +51,54 @@ function sql(strings: TemplateStringsArray, ...vals: unknown[]): string {
 
 // 1. Agents
 
-const tajiAgent = {
-  id: 'agent-taji-001',
-  name: 'Taji',
-  slug: 'taji',
-  description: 'Career document agent — CVs, cover letters, resignation letters',
-  systemPrompt: `You are Taji, a professional career document assistant.
+const agentsData = [
+  {
+    id: 'agent-taji-001',
+    name: 'Taji',
+    slug: 'taji',
+    description: 'Career document agent — CVs, cover letters, resignation letters',
+    systemPrompt: `You are Taji, a professional career document assistant.
 You help users create CVs, application letters, and resignation letters.
 Be warm, professional, and encouraging.
 Always collect all required fields before generating a document.`,
-  toolsEnabled: JSON.stringify(['listSKUs', 'collectField', 'initiatePayment', 'generateDocument']),
-  modelProvider: 'openrouter',
-  modelId: 'openai/gpt-4o-mini',
-  channel: 'whatsapp',
-  isActive: 1,
-}
-
-const elimAgent = {
-  id: 'agent-elim-001',
-  name: 'Elim',
-  slug: 'elim',
-  description: 'CBC education agent — exam prep, tutoring for Kenyan students',
-  systemPrompt: `You are Elim, a friendly CBC education assistant for Kenyan students.
+    toolsEnabled: JSON.stringify(['listSKUs', 'collectField', 'initiatePayment', 'generateDocument']),
+    modelProvider: 'openrouter',
+    modelId: 'openai/gpt-4o-mini',
+    channel: 'whatsapp',
+    channelConfig: JSON.stringify({ whatsappPhoneNumberId: '1038436689362682' }),
+    isActive: 1,
+  },
+  {
+    id: 'agent-elim-001',
+    name: 'Elim',
+    slug: 'elim',
+    description: 'CBC education agent — exam prep, tutoring for Kenyan students',
+    systemPrompt: `You are Elim, a friendly CBC education assistant for Kenyan students.
 You help with exam preparation, concept explanations, and practice questions.
 Always encourage students and explain things clearly in simple language.`,
-  toolsEnabled: JSON.stringify(['askQuestion', 'explainConcept', 'givePractice']),
-  modelProvider: 'openrouter',
-  modelId: 'openai/gpt-4o-mini',
-  channel: 'whatsapp',
-  isActive: 1,
-}
+    toolsEnabled: JSON.stringify(['askQuestion', 'explainConcept', 'givePractice']),
+    modelProvider: 'openrouter',
+    modelId: 'openai/gpt-4o-mini',
+    channel: 'whatsapp',
+    channelConfig: JSON.stringify({ whatsappPhoneNumberId: '729899760214979' }),
+    isActive: 1,
+  },
+  {
+    id: 'agent-test-001',
+    name: 'Test',
+    slug: 'test',
+    description: 'General-purpose test agent for WhatsApp flow testing',
+    systemPrompt: `You are a test agent for WhatsApp flow testing.
+Respond concisely and confirm that messages are being routed correctly.
+Identify yourself as the test agent when asked.`,
+    toolsEnabled: JSON.stringify(['listSKUs', 'collectField']),
+    modelProvider: 'openrouter',
+    modelId: 'openai/gpt-4o-mini',
+    channel: 'whatsapp',
+    channelConfig: JSON.stringify({ whatsappPhoneNumberId: '122108114672001278' }),
+    isActive: 1,
+  },
+]
 
 // 2. SKUs
 
@@ -139,6 +157,22 @@ const resignationSteps: ConversationStep[] = resignationFields.map((f, i) => ({
   fieldKey: f.key,
   validation: 'required',
 }))
+
+// ─── Admins ───────────────────────────────────────────────────────────────────
+
+const adminsData = [
+  {
+    id:   'admin-dev-001',
+    name: 'Dev Admin',
+    email: 'admin@example.com',
+    phone: null,
+    role: 'superadmin',
+    // SHA-256("admin123" + "dev-secret") — default dev credentials
+    hash: '6f0e6f6c5c7f7c5a9e8d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3',
+    contacts: null,
+    isActive: 1,
+  },
+]
 
 const skus = [
   {
@@ -207,13 +241,13 @@ const lines: string[] = [
   '',
 ]
 
-for (const a of [tajiAgent, elimAgent]) {
+for (const a of agentsData) {
   lines.push(
-    `INSERT OR REPLACE INTO agents (id, name, slug, description, system_prompt, tools_enabled, model_provider, model_id, channel, is_active, created_at, updated_at) VALUES (`,
+    `INSERT OR REPLACE INTO agents (id, name, slug, description, system_prompt, tools_enabled, model_provider, model_id, channel, channel_config, is_active, created_at, updated_at) VALUES (`,
     `  '${esc(a.id)}', '${esc(a.name)}', '${esc(a.slug)}', '${esc(a.description ?? '')}',`,
     `  '${esc(a.systemPrompt)}',`,
     `  '${esc(a.toolsEnabled)}', '${esc(a.modelProvider)}', '${esc(a.modelId)}',`,
-    `  '${esc(a.channel)}', ${a.isActive}, '${now}', '${now}'`,
+    `  '${esc(a.channel)}', '${esc(a.channelConfig)}', ${a.isActive}, '${now}', '${now}'`,
     `);`,
     '',
   )
@@ -235,6 +269,23 @@ for (const s of skus) {
     `  '${esc(s.fieldSchema)}',`,
     `  '${esc(s.conversationSteps)}',`,
     `  ${s.isActive}, ${s.requiresReview}, ${s.version}, '${now}', '${now}'`,
+    `);`,
+    '',
+  )
+}
+
+lines.push(
+  '',
+  '-- ─── Admins ────────────────────────────────────────────────────────────────',
+  '',
+)
+
+for (const a of adminsData) {
+  lines.push(
+    `INSERT OR REPLACE INTO admins (id, name, email, phone, role, hash, contacts, is_active, created_at, updated_at) VALUES (`,
+    `  '${esc(a.id)}', '${esc(a.name)}', '${esc(a.email)}',`,
+    `  ${a.phone ? `'${esc(a.phone)}'` : 'NULL'}, '${esc(a.role)}', '${esc(a.hash)}',`,
+    `  ${a.contacts ? `'${esc(a.contacts)}'` : 'NULL'}, ${a.isActive}, '${now}', '${now}'`,
     `);`,
     '',
   )

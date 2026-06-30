@@ -7,6 +7,7 @@ import { MachineModel } from '../../models/machine'
 import { sendHelp, sendReset, sendError, sendReply } from '../outgoing/reply'
 import type { Env } from '../../types/env'
 import { DEFAULT_AGENT } from '../../types/env'
+import { PHONE_NUMBER_ID_TO_AGENT } from '../../config/phone-agent-map'
 
 const TAG_WIDTH = 7
 
@@ -21,7 +22,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
     const rawBody = await c.req.text()
     const signature = c.req.header('X-Hub-Signature-256') ?? null
 
-    const validSig = await verifySignature(rawBody, signature, c.env.WHATSAPP_TOKEN)
+    const validSig = await verifySignature(rawBody, signature, c.env.WHATSAPP_APP_SECRET)
     if (!validSig) {
       log('suspicious', 'X-Hub-Signature-256 mismatch or missing')
     }
@@ -68,20 +69,27 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
     const sessionModel = new SessionModel(c.env)
     const machineModel = new MachineModel(c.env)
 
+    const mappedAgent = PHONE_NUMBER_ID_TO_AGENT[phoneNumberId]
     const session = await sessionModel.getSession(from)
-    const agentSlug = session.agentSlug ?? DEFAULT_AGENT
+    const agentSlug = mappedAgent ?? session.agentSlug ?? DEFAULT_AGENT
+
+    if (mappedAgent && session.agentSlug !== mappedAgent) {
+      session.agentSlug = mappedAgent
+    }
+
+    log('agent', `${agentSlug} (phoneNumberId: ${phoneNumberId})`)
 
     try {
       const cmd = text.trim().toLowerCase().split(' ')[0]
 
       if (cmd === '/help') {
-        await sendHelp(phoneNumberId, from, c.env.WHATSAPP_TOKEN)
+        await sendHelp(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
         return c.json(ok(null))
       }
 
       if (cmd === '/reset') {
         await machineModel.reset(from, agentSlug)
-        await sendReset(phoneNumberId, from, c.env.WHATSAPP_TOKEN)
+        await sendReset(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
         return c.json(ok(null))
       }
 
@@ -91,13 +99,13 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
       await sessionModel.saveSession(from, session)
 
       if (reply) {
-        await sendReply(phoneNumberId, from, reply, c.env.WHATSAPP_TOKEN)
+        await sendReply(phoneNumberId, from, reply, c.env.WHATSAPP_ACCESS_TOKEN)
         log('reply', reply.slice(0, 200))
         log('stage', data?.data?.stage ?? '')
       }
     } catch (e) {
       log('error', e instanceof Error ? e.message : 'Unknown')
-      await sendError(phoneNumberId, from, c.env.WHATSAPP_TOKEN)
+      await sendError(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
     }
 
     return c.json(ok(null))

@@ -38,7 +38,7 @@ export const messages = sqliteTable('messages', {
   createdAt:      text('created_at').notNull(),
 })
 
-export const users = sqliteTable('users', {
+export const customers = sqliteTable('customers', {
   id:           text('id').primaryKey(),
   name:         text('name').notNull(),
   phone:        text('phone'),

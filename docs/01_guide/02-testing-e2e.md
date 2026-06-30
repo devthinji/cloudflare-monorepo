@@ -80,7 +80,7 @@ npx wrangler kv key get --binding=SESSIONS_KV "session:<phone>" \
 
 # Check D1 records
 npx wrangler d1 execute platform-db --local \
-  --command="SELECT * FROM users" \
+  --command="SELECT * FROM customers" \
   --config=apps/api/gateway/wrangler.toml
 
 # Reset session

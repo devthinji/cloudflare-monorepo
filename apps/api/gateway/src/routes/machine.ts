@@ -34,7 +34,7 @@ machineRoutes.post('/advance', async (c) => {
     lookupUser: async (userId) => {
       try {
         const res  = await c.env.AGENT_WORKER.fetch(new Request(
-          `https://internal/api/v1/agent/users/${encodeURIComponent(userId)}`,
+          `https://internal/api/v1/agent/customers/${encodeURIComponent(userId)}`,
           { headers: { 'X-Internal': 'gateway' } }
         ))
         const data = await res.json() as { success: boolean; data?: { name?: string; registered?: boolean } }
@@ -44,7 +44,7 @@ machineRoutes.post('/advance', async (c) => {
     },
 
     registerUser: async (userId, name) => {
-      await c.env.AGENT_WORKER.fetch(new Request('https://internal/api/v1/agent/users', {
+      await c.env.AGENT_WORKER.fetch(new Request('https://internal/api/v1/agent/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Internal': 'gateway' },
         body: JSON.stringify({ userId, name, channel: body.channel }),

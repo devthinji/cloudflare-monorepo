@@ -23,7 +23,7 @@ What is complete:
 - Blueprint-driven flow (version_1.ts owns all transitions, guards, messages)
 - SKU system: 3 active Taji SKUs seeded at test prices (KES 1–3)
 - M-Pesa Daraja STK push + callback
-- Dashboard wired to real API (agents, SKUs, transactions, documents, users)
+- Dashboard wired to real API (agents, SKUs, transactions, documents, customers)
 - D1 migrations, seed script, Doppler secrets management
 - Pre-flight TypeScript checks pass clean across all workers
 

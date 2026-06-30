@@ -17,7 +17,7 @@ conversation context in memory.
 
 | Binding        | Type            | What it is                         |
 |----------------|-----------------|------------------------------------|
-| DB             | D1              | platform-db (read users, write messages/conversations) |
+| DB             | D1              | platform-db (read customers, write messages/conversations) |
 | AGENT_KV       | KV              | Agent config cache                 |
 | DOCS_BUCKET    | R2              | Generated document storage         |
 | AI             | Workers AI      | @cf/meta/llama-3.1-8b-instruct     |
@@ -38,10 +38,10 @@ DELETE /api/v1/agent/agents/:slug     — delete agent
 
 POST /api/v1/agent/chat               — send message to AgentWorker DO
 
-GET  /api/v1/agent/users              — list users
-GET  /api/v1/agent/users/:userId      — get one user
-POST /api/v1/agent/users              — create or update user
-PATCH /api/v1/agent/users/:userId     — patch user fields
+GET  /api/v1/agent/customers              — list customers
+GET  /api/v1/agent/customers/:customerId      — get one customer
+POST /api/v1/agent/customers              — create or update customer
+PATCH /api/v1/agent/customers/:customerId     — patch customer fields
 
 GET  /api/v1/agent/conversations/:userId         — list conversations for user
 GET  /api/v1/agent/conversations/:id/messages    — list messages in conversation
@@ -99,7 +99,7 @@ src/
     chat.ts                      — /chat handler, routes to DO
     config.ts                    — AgentIntelligence (model config loader)
     conversations.ts             — conversation + message queries
-    users.ts                     — user CRUD
+    customers.ts                     — customer CRUD
     providers.ts                 — LLM provider selection logic
   pipeline/
     interview-engine.ts          — step-by-step field collection

@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
 
-// ─── Agent: agents, conversations, messages, users ───────────────────────────
+// ─── Agent: agents, conversations, messages, customers ───────────────────────
 
 export const agents = sqliteTable('agents', {
   id:            text('id').primaryKey(),
@@ -40,7 +40,7 @@ export const messages = sqliteTable('messages', {
   createdAt:      text('created_at').notNull(),
 })
 
-export const users = sqliteTable('users', {
+export const customers = sqliteTable('customers', {
   id:           text('id').primaryKey(),
   name:         text('name').notNull(),
   phone:        text('phone'),
@@ -51,6 +51,21 @@ export const users = sqliteTable('users', {
   metadata:     text('metadata'),
   createdAt:    text('created_at').notNull(),
   updatedAt:    text('updated_at').notNull(),
+})
+
+// ─── Auth: admin users (dashboard login) ─────────────────────────────────────
+
+export const admins = sqliteTable('admins', {
+  id:        text('id').primaryKey(),
+  name:      text('name').notNull(),
+  email:     text('email').notNull().unique(),
+  phone:     text('phone'),
+  role:      text('role').notNull().default('admin'),
+  hash:      text('hash').notNull(),
+  contacts:  text('contacts'),
+  isActive:  integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
 })
 
 // ─── Docgen: templates, documents ─────────────────────────────────────────────

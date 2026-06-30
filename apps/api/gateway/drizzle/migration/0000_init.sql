@@ -89,7 +89,7 @@ CREATE TABLE `transactions` (
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `users` (
+CREATE TABLE `customers` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`phone` text,
@@ -100,7 +100,20 @@ CREATE TABLE `users` (
 	`metadata` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
-);
+);--> statement-breakpoint
+CREATE TABLE `admins` (
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`email` text NOT NULL,
+	`phone` text,
+	`role` text DEFAULT 'admin' NOT NULL,
+	`hash` text NOT NULL,
+	`contacts` text,
+	`is_active` integer DEFAULT true NOT NULL,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL
+);--> statement-breakpoint
+CREATE UNIQUE INDEX `admins_email_unique` ON `admins` (`email`);
 --> statement-breakpoint
 CREATE TABLE `skus` (
   `id`                  TEXT PRIMARY KEY NOT NULL,

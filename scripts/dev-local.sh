@@ -58,17 +58,15 @@ cinfo "Starting workers..."
 
 wrun() {
   local dir="$1" port="$2" insp="$3"
-  (cd "$dir" && npx wrangler dev --port "$port" --ip localhost --inspector-port "$insp" 2>&1 \
-    | tr -d '\r' \
-    | grep -v 'wrangler' || true) &
+  (cd "$dir" && exec npx wrangler dev --port "$port" --ip localhost --inspector-port "$insp") &
 }
 
 wrun apps/api/agent        8790 9220
 wrun apps/api/docgen       8791 9221
 wrun apps/api/gateway      8787 9222
 wrun apps/web/aaf/whatsapp 8793 9224
-(cd apps/web/pages/dashboard && npx vite --port 5173 --host 2>&1 | grep -v "deprecated\|MODULE_TYPELESS\|postcss") &
-(pnpm run db:studio 2>&1 | grep -v "Beta\|Drizzle Studio is") &
+(cd apps/web/pages/dashboard && npx vite --port 5173 --host) &
+(pnpm run db:studio) &
 
 # ─── Pinned services header ────────────────────────────────────────────────────
 

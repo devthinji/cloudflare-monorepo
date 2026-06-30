@@ -157,9 +157,9 @@ export const skusApi = {
 }
 
 
-// ── Users ──────────────────────────────────────────────────────────────────────
+// ── Customers (WhatsApp end-users) ──────────────────────────────────────────────
 
-export interface User {
+export interface Customer {
   id:         string
   name:       string
   phone?:     string
@@ -172,11 +172,11 @@ export interface User {
   updatedAt:  string
 }
 
-export const usersApi = {
-  list:   ()                                      => request<User[]>('GET',   '/api/v1/agent/users'),
-  get:    (userId: string)                        => request<User>  ('GET',   `/api/v1/agent/users/${encodeURIComponent(userId)}`),
-  patch:  (userId: string, data: Partial<Pick<User, 'name' | 'phone' | 'agentSlug' | 'blocked' | 'metadata'>>) =>
-                                                     request<{ updated: boolean }>('PATCH', `/api/v1/agent/users/${encodeURIComponent(userId)}`, data),
+export const customersApi = {
+  list:   ()                                             => request<Customer[]>('GET',   '/api/v1/agent/customers'),
+  get:    (customerId: string)                           => request<Customer>  ('GET',   `/api/v1/agent/customers/${encodeURIComponent(customerId)}`),
+  patch:  (customerId: string, data: Partial<Pick<Customer, 'name' | 'phone' | 'agentSlug' | 'blocked' | 'metadata'>>) =>
+                                                           request<{ updated: boolean }>('PATCH', `/api/v1/agent/customers/${encodeURIComponent(customerId)}`, data),
 }
 
 // Legacy alias so old imports don't break

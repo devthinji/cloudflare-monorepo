@@ -3,29 +3,29 @@
 
 import { useEffect, useState } from 'react'
 import { Users, MessageSquare, Loader2, X, Search, RefreshCw, Shield, ShieldOff, ChevronRight, ArrowLeft } from 'lucide-react'
-import { usersApi, conversationsApi, type User, type Conversation } from '../../api/client'
+import { customersApi, conversationsApi, type Customer, type Conversation } from '../../api/client'
 
 type Tab = 'users' | 'conversations'
 
 export default function ConversationsPage() {
-  const [tab,     setTab]     = useState<Tab>('users')
-  const [users,   setUsers]   = useState<User[]>([])
-  const [convos,  setConvos]  = useState<Conversation[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
-  const [search,  setSearch]  = useState('')
-  const [detail,  setDetail]  = useState<User | null>(null)
+  const [tab,       setTab]     = useState<Tab>('users')
+  const [customers, setCustomers]   = useState<Customer[]>([])
+  const [convos,    setConvos]  = useState<Conversation[]>([])
+  const [loading,   setLoading] = useState(true)
+  const [error,     setError]   = useState<string | null>(null)
+  const [search,    setSearch]  = useState('')
+  const [detail,    setDetail]  = useState<Customer | null>(null)
 
   async function load() {
     setLoading(true); setError(null)
     try {
       if (tab === 'users') {
-        setUsers(await usersApi.list())
+        setCustomers(await customersApi.list())
       } else {
-        // conversations across all users — fetch per user
-        const allUsers = await usersApi.list()
+        // conversations across all customers — fetch per customer
+        const allCustomers = await customersApi.list()
         const all: Conversation[] = []
-        for (const u of allUsers.slice(0, 30)) {
+        for (const u of allCustomers.slice(0, 30)) {
           try { all.push(...await conversationsApi.list(u.id)) } catch {}
         }
         all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -37,15 +37,15 @@ export default function ConversationsPage() {
 
   useEffect(() => { load() }, [tab])
 
-  async function toggleBlock(user: User) {
+  async function toggleBlock(customer: Customer) {
     try {
-      await usersApi.patch(user.id, { blocked: !user.blocked })
-      setUsers(u => u.map(x => x.id === user.id ? { ...x, blocked: !x.blocked } : x))
-      if (detail?.id === user.id) setDetail(d => d ? { ...d, blocked: !d.blocked } : d)
+      await customersApi.patch(customer.id, { blocked: !customer.blocked })
+      setCustomers(c => c.map(x => x.id === customer.id ? { ...x, blocked: !x.blocked } : x))
+      if (detail?.id === customer.id) setDetail(d => d ? { ...d, blocked: !d.blocked } : d)
     } catch (e) { setError((e as Error).message) }
   }
 
-  const filteredUsers = users.filter(u =>
+  const filteredCustomers = customers.filter(u =>
     !search || u.name.toLowerCase().includes(search.toLowerCase()) ||
     u.id.includes(search) || (u.phone ?? '').includes(search)
   )
@@ -93,26 +93,26 @@ export default function ConversationsPage() {
 
         // ── Users table ──────────────────────────────────────────────────────
         detail ? (
-          <UserDetail user={detail} onBack={() => setDetail(null)} onToggleBlock={() => toggleBlock(detail)}/>
+          <CustomerDetail customer={detail} onBack={() => setDetail(null)} onToggleBlock={() => toggleBlock(detail)}/>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-            {filteredUsers.length === 0 ? (
+            {filteredCustomers.length === 0 ? (
               <div className="text-center py-20 text-gray-400">
                 <Users size={40} className="mx-auto mb-3 opacity-25"/>
-                <p className="text-sm">{search ? 'No users match your search' : 'No users yet'}</p>
+                <p className="text-sm">{search ? 'No customers match your search' : 'No customers yet'}</p>
               </div>
             ) : (
               <>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
-                      {['User', 'Channel', 'Agent', 'Registered', 'Status', ''].map(h => (
+                      {['Customer', 'Channel', 'Agent', 'Registered', 'Status', ''].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {filteredUsers.map(u => (
+                    {filteredCustomers.map(u => (
                       <tr key={u.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setDetail(u)}>
                         <td className="px-4 py-3">
                           <div>
@@ -140,7 +140,7 @@ export default function ConversationsPage() {
                   </tbody>
                 </table>
                 <div className="px-4 py-3 border-t border-gray-50 text-xs text-gray-400">
-                  {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
+                  {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? 's' : ''}
                 </div>
               </>
             )}
@@ -195,27 +195,27 @@ export default function ConversationsPage() {
   )
 }
 
-// ── User Detail Panel ─────────────────────────────────────────────────────────
+// ── Customer Detail Panel ─────────────────────────────────────────────────────
 
-function UserDetail({ user, onBack, onToggleBlock }: { user: User; onBack: () => void; onToggleBlock: () => void }) {
+function CustomerDetail({ customer, onBack, onToggleBlock }: { customer: Customer; onBack: () => void; onToggleBlock: () => void }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-gray-400 hover:text-gray-600"><ArrowLeft size={18}/></button>
         <div>
-          <h2 className="text-lg font-bold text-gray-900">{user.name}</h2>
-          <p className="text-xs text-gray-400 font-mono">{user.phone ?? user.id}</p>
+          <h2 className="text-lg font-bold text-gray-900">{customer.name}</h2>
+          <p className="text-xs text-gray-400 font-mono">{customer.phone ?? customer.id}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
         {[
-          { label: 'Channel',     value: user.channel },
-          { label: 'Agent',       value: user.agentSlug ?? '—' },
-          { label: 'Registered',  value: user.registered ? 'Yes' : 'No' },
-          { label: 'Status',      value: user.blocked ? 'Blocked' : 'Active' },
-          { label: 'Joined',      value: new Date(user.createdAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' }) },
-          { label: 'Last seen',   value: new Date(user.updatedAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) },
+          { label: 'Channel',     value: customer.channel },
+          { label: 'Agent',       value: customer.agentSlug ?? '—' },
+          { label: 'Registered',  value: customer.registered ? 'Yes' : 'No' },
+          { label: 'Status',      value: customer.blocked ? 'Blocked' : 'Active' },
+          { label: 'Joined',      value: new Date(customer.createdAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' }) },
+          { label: 'Last seen',   value: new Date(customer.updatedAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) },
         ].map(row => (
           <div key={row.label} className="bg-gray-50 rounded-xl px-4 py-3">
             <p className="text-xs text-gray-400 mb-0.5">{row.label}</p>
@@ -224,16 +224,16 @@ function UserDetail({ user, onBack, onToggleBlock }: { user: User; onBack: () =>
         ))}
       </div>
 
-      {user.metadata && (
+      {customer.metadata && (
         <div>
           <p className="text-xs font-semibold text-gray-500 mb-2">Metadata</p>
-          <pre className="text-xs bg-gray-50 rounded-xl p-3 overflow-x-auto text-gray-600">{JSON.stringify(user.metadata, null, 2)}</pre>
+          <pre className="text-xs bg-gray-50 rounded-xl p-3 overflow-x-auto text-gray-600">{JSON.stringify(customer.metadata, null, 2)}</pre>
         </div>
       )}
 
       <button onClick={onToggleBlock}
-        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${user.blocked ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}>
-        {user.blocked ? <><Shield size={14}/> Unblock User</> : <><ShieldOff size={14}/> Block User</>}
+        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${customer.blocked ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}>
+        {customer.blocked ? <><Shield size={14}/> Unblock Customer</> : <><ShieldOff size={14}/> Block Customer</>}
       </button>
     </div>
   )

@@ -6,7 +6,7 @@ import { createLogger } from '@repo/middleware'
 import { AgentIntelligence } from '../controllers/config'
 import { requestLogger } from '@repo/middleware'
 import * as AgentsCtrl from '../controllers/agents'
-import * as UsersCtrl   from '../controllers/users'
+import * as CustomersCtrl from '../controllers/customers'
 import * as ChatCtrl    from '../controllers/chat'
 import * as ConvCtrl    from '../controllers/conversations'
 
@@ -25,10 +25,10 @@ app.delete('/api/v1/agent/agents/:slug',         AgentsCtrl.deleteAgent)
 
 app.post('/api/v1/agent/chat',                   ChatCtrl.chat)
 
-app.get('/api/v1/agent/users/:userId',           UsersCtrl.getUser)
-app.post('/api/v1/agent/users',                  UsersCtrl.createOrUpdateUser)
-app.patch('/api/v1/agent/users/:userId',         UsersCtrl.patchUser)
-app.get('/api/v1/agent/users',                   UsersCtrl.listUsers)
+app.get('/api/v1/agent/customers/:customerId',    CustomersCtrl.getCustomer)
+app.post('/api/v1/agent/customers',               CustomersCtrl.createOrUpdateCustomer)
+app.patch('/api/v1/agent/customers/:customerId',  CustomersCtrl.patchCustomer)
+app.get('/api/v1/agent/customers',                CustomersCtrl.listCustomers)
 
 app.get('/api/v1/agent/conversations/:userId',   ConvCtrl.listConversations)
 app.get('/api/v1/agent/conversations/:id/messages', ConvCtrl.listMessages)

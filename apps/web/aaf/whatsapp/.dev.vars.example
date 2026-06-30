@@ -1,9 +1,11 @@
 # ─── Secrets ───────────────────────────────────────────────────────────────────
 # Copy this file to .dev.vars and fill in your values.
 
-WHATSAPP_TOKEN="your_whatsapp_access_token"
+WHATSAPP_ACCESS_TOKEN="your_meta_permanent_access_token"
+WHATSAPP_APP_SECRET="your_meta_app_secret"
 WHATSAPP_VERIFY_TOKEN="your_webhook_verify_token"
-WHATSAPP_PHONE_NUMBER_ID="your_phone_number_id"
+# Multiple phone number IDs - use the relevant one based on agent
+WHATSAPP_PHONE_NUMBER_ID="1038436689362682"
 
 # Bindings from wrangler.toml (resolved automatically):
 #   AAF_KV (KV), API_GATEWAY (service binding)
