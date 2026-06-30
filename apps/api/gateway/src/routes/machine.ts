@@ -59,14 +59,13 @@ machineRoutes.post('/advance', async (c) => {
           `https://internal/api/v1/docgen/skus?agentSlug=${agentSlug}&active=true`,
           { headers: { 'X-Internal': 'gateway' } }
         ))
-        const data = await res.json() as { success: boolean; data?: { id: string; name: string; price: number; currency: string; agentSlug: string; fieldSchema: unknown[] }[] }
+        const data = await res.json() as { success: boolean; data?: { id: string; name: string; price: number; currency: string; fieldSchema: unknown[] }[] }
         if (!data.success || !data.data) return []
         return data.data.map(r => ({
           id:        r.id,
           name:      r.name,
           price:     r.price,
           currency:  r.currency,
-          agentSlug: r.agentSlug,
           fields:    r.fieldSchema as LiveSKU['fields'],
         }))
       } catch { return [] }
@@ -137,6 +136,7 @@ machineRoutes.post('/advance', async (c) => {
           headers: { 'Content-Type': 'application/json', 'X-Internal': 'gateway' },
           body: JSON.stringify({
             userId:      context.userId,
+            agentSlug:   context.agentSlug,
             skuId:       sku.id,
             fieldValues: context.collectedFields,
           }),

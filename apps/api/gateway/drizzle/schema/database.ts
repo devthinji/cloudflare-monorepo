@@ -110,7 +110,6 @@ export const skus = sqliteTable('skus', {
   name:              text('name').notNull(),
   slug:              text('slug').notNull().unique(),
   description:       text('description'),
-  agentSlug:         text('agent_slug').notNull(),
   templateType:      text('template_type').notNull(),
   fileKey:           text('file_key').notNull(),
   previewKey:        text('preview_key'),
@@ -124,6 +123,17 @@ export const skus = sqliteTable('skus', {
   version:           integer('version').notNull().default(1),
   createdAt:         text('created_at').notNull(),
   updatedAt:         text('updated_at').notNull(),
+})
+
+// ─── Docgen: sku-agent access (junction table) ──────────────────────────────────
+
+export const skuAgentAccess = sqliteTable('sku_agent_access', {
+  id:        text('id').primaryKey(),
+  skuId:     text('sku_id').notNull(),
+  agentSlug: text('agent_slug').notNull(),
+  enabled:   integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
 })
 
 // ─── Payments: transactions ───────────────────────────────────────────────────

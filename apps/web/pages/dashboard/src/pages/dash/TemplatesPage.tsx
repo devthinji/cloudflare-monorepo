@@ -240,7 +240,6 @@ export default function TemplatesPage() {
                 <div className="flex flex-wrap gap-1.5">
                   <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${badge.color}`}>{badge.icon}{badge.label}</span>
                   <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{sku.currency} {sku.price}</span>
-                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{sku.agentSlug}</span>
                   <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">{sku.fieldSchema.length} fields</span>
                 </div>
 

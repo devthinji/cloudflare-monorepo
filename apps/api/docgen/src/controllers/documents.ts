@@ -58,10 +58,10 @@ export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const log = createLogger('docgen', c.env)
   const db = createDb(c.env.DB)
   const body = await c.req.json() as {
-    userId: string; skuId: string; fieldValues: Record<string, unknown>
+    userId: string; agentSlug: string; skuId: string; fieldValues: Record<string, unknown>
   }
 
-  if (!body.userId || !body.skuId || !body.fieldValues) return c.json(err('userId, skuId, fieldValues required'), 400)
+  if (!body.userId || !body.agentSlug || !body.skuId || !body.fieldValues) return c.json(err('userId, agentSlug, skuId, fieldValues required'), 400)
 
   const sku = await db.select().from(skus).where(eq(skus.id, body.skuId)).get()
   if (!sku) return c.json(err('SKU not found'), 404)
@@ -87,7 +87,7 @@ export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
 
   const ts = now()
   await db.insert(documents).values({
-    id: docId, userId: body.userId, agentSlug: sku.agentSlug,
+    id: docId, userId: body.userId, agentSlug: body.agentSlug,
     templateId: sku.id, type: sku.templateType,
     title: `${sku.name} — ${body.userId}`, fileUrl,
     fieldValues: JSON.stringify(body.fieldValues), createdAt: ts,

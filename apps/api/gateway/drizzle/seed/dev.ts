@@ -180,7 +180,6 @@ const skus = [
     name:               'Professional CV',
     slug:               'professional-cv',
     description:        'A clean, professional CV template suitable for all industries in Kenya.',
-    agentSlug:          'taji',
     templateType:       'docx',
     fileKey:            'templates/cv-professional-v1.docx',
     previewKey:         null,
@@ -198,7 +197,6 @@ const skus = [
     name:               'Application / Cover Letter',
     slug:               'cover-letter',
     description:        'A persuasive cover letter tailored to the specific job and company.',
-    agentSlug:          'taji',
     templateType:       'docx',
     fileKey:            'templates/cover-letter-v1.docx',
     previewKey:         null,
@@ -216,7 +214,6 @@ const skus = [
     name:               'Resignation Letter',
     slug:               'resignation-letter',
     description:        'A professional resignation letter with proper notice period.',
-    agentSlug:          'taji',
     templateType:       'docx',
     fileKey:            'templates/resignation-letter-v1.docx',
     previewKey:         null,
@@ -229,6 +226,17 @@ const skus = [
     requiresReview:     0,
     version:            1,
   },
+]
+
+// 3. SKU-agent access (junction table)
+
+const skuAgentAccessData = [
+  { id: 'access-saa-cv-taji-001',  skuId: 'sku-cv-professional-001', agentSlug: 'taji', enabled: 1 },
+  { id: 'access-saa-cv-elim-001',  skuId: 'sku-cv-professional-001', agentSlug: 'elim', enabled: 0 },
+  { id: 'access-saa-cover-taji-001',  skuId: 'sku-cover-letter-001', agentSlug: 'taji', enabled: 1 },
+  { id: 'access-saa-cover-elim-001',  skuId: 'sku-cover-letter-001', agentSlug: 'elim', enabled: 0 },
+  { id: 'access-saa-resign-taji-001', skuId: 'sku-resignation-001', agentSlug: 'taji', enabled: 1 },
+  { id: 'access-saa-resign-elim-001', skuId: 'sku-resignation-001', agentSlug: 'elim', enabled: 0 },
 ]
 
 // ─── Generate SQL ─────────────────────────────────────────────────────────────
@@ -261,14 +269,29 @@ lines.push(
 
 for (const s of skus) {
   lines.push(
-    `INSERT OR REPLACE INTO skus (id, name, slug, description, agent_slug, template_type, file_key, preview_key, markdown_preview, price, currency, field_schema, conversation_steps, is_active, requires_review, version, created_at, updated_at) VALUES (`,
+    `INSERT OR REPLACE INTO skus (id, name, slug, description, template_type, file_key, preview_key, markdown_preview, price, currency, field_schema, conversation_steps, is_active, requires_review, version, created_at, updated_at) VALUES (`,
     `  '${esc(s.id)}', '${esc(s.name)}', '${esc(s.slug)}', '${esc(s.description ?? '')}',`,
-    `  '${esc(s.agentSlug)}', '${esc(s.templateType)}', '${esc(s.fileKey)}',`,
+    `  '${esc(s.templateType)}', '${esc(s.fileKey)}',`,
     `  ${s.previewKey ? `'${esc(s.previewKey)}'` : 'NULL'}, '${esc(s.markdownPreview ?? '')}',`,
     `  ${s.price}, '${esc(s.currency)}',`,
     `  '${esc(s.fieldSchema)}',`,
     `  '${esc(s.conversationSteps)}',`,
     `  ${s.isActive}, ${s.requiresReview}, ${s.version}, '${now}', '${now}'`,
+    `);`,
+    '',
+  )
+}
+
+lines.push(
+  '',
+  '-- ─── SKU-Agent Access ────────────────────────────────────────────────────────',
+  '',
+)
+
+for (const a of skuAgentAccessData) {
+  lines.push(
+    `INSERT OR REPLACE INTO sku_agent_access (id, sku_id, agent_slug, enabled, created_at, updated_at) VALUES (`,
+    `  '${esc(a.id)}', '${esc(a.skuId)}', '${esc(a.agentSlug)}', ${a.enabled}, '${now}', '${now}'`,
     `);`,
     '',
   )

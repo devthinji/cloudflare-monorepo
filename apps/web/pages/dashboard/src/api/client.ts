@@ -97,7 +97,6 @@ export interface SKU {
   name:              string
   slug:              string
   description?:      string
-  agentSlug:         string
   templateType:      string
   fileKey:           string
   previewKey?:       string
@@ -135,7 +134,7 @@ export const skusApi = {
 
   get: (id: string) => request<SKU>('GET', `/api/v1/docgen/skus/${id}`),
 
-  update: (id: string, data: Partial<Pick<SKU, 'name' | 'price' | 'agentSlug' | 'fieldSchema' | 'conversationSteps' | 'isActive' | 'description'>>) =>
+  update: (id: string, data: Partial<Pick<SKU, 'name' | 'price' | 'fieldSchema' | 'conversationSteps' | 'isActive' | 'description'> & { agentAccess: { agentSlug: string; enabled: boolean }[] }>) =>
     request<{ updated: boolean; version: number }>('PATCH', `/api/v1/docgen/skus/${id}`, data),
 
   publish: (id: string) =>

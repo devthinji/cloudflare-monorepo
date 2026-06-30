@@ -26,7 +26,7 @@ export interface LiveFieldSchema {
 }
 
 export interface LiveSKU {
-  id: string; name: string; price: number; currency: string; agentSlug: string; fields: LiveFieldSchema[]
+  id: string; name: string; price: number; currency: string; fields: LiveFieldSchema[]
 }
 
 export interface MachineContext {

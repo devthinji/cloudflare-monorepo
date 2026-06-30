@@ -120,7 +120,6 @@ CREATE TABLE `skus` (
   `name`                TEXT NOT NULL,
   `slug`                TEXT NOT NULL,
   `description`         TEXT,
-  `agent_slug`          TEXT NOT NULL,
   `template_type`       TEXT NOT NULL,
   `file_key`            TEXT NOT NULL,
   `preview_key`         TEXT,
@@ -137,3 +136,18 @@ CREATE TABLE `skus` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `skus_slug_unique` ON `skus` (`slug`);
+--> statement-breakpoint
+CREATE TABLE `sku_agent_access` (
+  `id`         TEXT PRIMARY KEY NOT NULL,
+  `sku_id`     TEXT NOT NULL,
+  `agent_slug` TEXT NOT NULL,
+  `enabled`    INTEGER NOT NULL DEFAULT 1,
+  `created_at` TEXT NOT NULL,
+  `updated_at` TEXT NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `idx_sku_agent_access_sku` ON `sku_agent_access` (`sku_id`);
+--> statement-breakpoint
+CREATE INDEX `idx_sku_agent_access_agent` ON `sku_agent_access` (`agent_slug`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `idx_sku_agent_access_unique` ON `sku_agent_access` (`sku_id`, `agent_slug`);

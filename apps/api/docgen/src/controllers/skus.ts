@@ -1,5 +1,5 @@
 import type { Context } from 'hono'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and } from 'drizzle-orm'
 import { sqliteTable, text, real, integer } from 'drizzle-orm/sqlite-core'
 import type { DocgenWorkerEnv } from '@repo/types'
 import { ok, err, generateId, now, slugify } from '@repo/utils'
@@ -12,7 +12,6 @@ export const skus = sqliteTable('skus', {
   name: text('name').notNull(),
   slug: text('slug').notNull(),
   description: text('description'),
-  agentSlug: text('agent_slug').notNull(),
   templateType: text('template_type').notNull(),
   fileKey: text('file_key').notNull(),
   previewKey: text('preview_key'),
@@ -24,6 +23,15 @@ export const skus = sqliteTable('skus', {
   isActive: integer('is_active').notNull().default(0),
   requiresReview: integer('requires_review').notNull().default(1),
   version: integer('version').notNull().default(1),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+export const skuAgentAccess = sqliteTable('sku_agent_access', {
+  id: text('id').primaryKey(),
+  skuId: text('sku_id').notNull(),
+  agentSlug: text('agent_slug').notNull(),
+  enabled: integer('enabled').notNull().default(1),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 })
@@ -64,11 +72,16 @@ export async function uploadSKU(c: Context<{ Bindings: DocgenWorkerEnv }>) {
 
     const requiresReview = ext === 'canva' || ext === 'png' || ext === 'jpg' || ext === 'image' ? 1 : 0
 
+    const ts2 = now()
     await db.insert(skus).values({
-      id: skuId, name, slug, description: extraction.description, agentSlug,
+      id: skuId, name, slug, description: extraction.description,
       templateType: ext, fileKey, markdownPreview, price,
       fieldSchema: JSON.stringify(extraction.placeholder_schema ?? []),
       isActive: 0, requiresReview, version: 1, createdAt: ts, updatedAt: ts,
+    })
+
+    await db.insert(skuAgentAccess).values({
+      id: generateId(), skuId, agentSlug, enabled: 1, createdAt: ts2, updatedAt: ts2,
     })
 
     log.info({ skuId, name, ext, fields: extraction.placeholder_schema?.length }, 'sku:uploaded')
@@ -88,9 +101,17 @@ export async function listSKUs(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const db = createDb(c.env.DB)
   const agentSlug = c.req.query('agentSlug')
   const activeOnly = c.req.query('active') === 'true'
-  const rows = await db.select().from(skus).orderBy(desc(skus.createdAt))
+  let rows
+  if (agentSlug) {
+    const joined = await db.select().from(skus)
+      .innerJoin(skuAgentAccess, eq(skus.id, skuAgentAccess.skuId))
+      .where(and(eq(skuAgentAccess.agentSlug, agentSlug), eq(skuAgentAccess.enabled, 1)))
+      .orderBy(desc(skus.createdAt))
+    rows = joined.map(r => ({ ...r.skus }))
+  } else {
+    rows = await db.select().from(skus).orderBy(desc(skus.createdAt))
+  }
   const filtered = rows
-    .filter(r => agentSlug ? r.agentSlug === agentSlug : true)
     .filter(r => activeOnly ? r.isActive === 1 : true)
     .map(r => ({ ...r, fieldSchema: JSON.parse(r.fieldSchema), conversationSteps: r.conversationSteps ? JSON.parse(r.conversationSteps) : null }))
   return c.json(ok(filtered))
@@ -107,8 +128,9 @@ export async function updateSKU(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const db = createDb(c.env.DB)
   const log = createLogger('docgen', c.env)
   const body = await c.req.json() as {
-    name?: string; price?: number; agentSlug?: string; fieldSchema?: unknown[]
+    name?: string; price?: number; fieldSchema?: unknown[]
     conversationSteps?: unknown; isActive?: boolean; description?: string
+    agentAccess?: { agentSlug: string; enabled: boolean }[]
   }
   const existing = await db.select().from(skus).where(eq(skus.id, c.req.param('id')!)).get()
   if (!existing) return c.json(err('SKU not found'), 404)
@@ -116,13 +138,30 @@ export async function updateSKU(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const updates: Record<string, unknown> = { updatedAt: now() }
   if (body.name !== undefined) updates.name = body.name
   if (body.price !== undefined) updates.price = body.price
-  if (body.agentSlug !== undefined) updates.agentSlug = body.agentSlug
   if (body.description !== undefined) updates.description = body.description
   if (body.fieldSchema !== undefined) { updates.fieldSchema = JSON.stringify(body.fieldSchema); updates.version = (existing.version ?? 1) + 1 }
   if (body.conversationSteps !== undefined) updates.conversationSteps = JSON.stringify(body.conversationSteps)
   if (body.isActive !== undefined) { updates.isActive = body.isActive ? 1 : 0; updates.requiresReview = 0 }
 
   await db.update(skus).set(updates).where(eq(skus.id, c.req.param('id')!))
+
+  if (body.agentAccess !== undefined) {
+    const ts = now()
+    for (const a of body.agentAccess) {
+      const existingRow = await db.select().from(skuAgentAccess)
+        .where(and(eq(skuAgentAccess.skuId, c.req.param('id')!), eq(skuAgentAccess.agentSlug, a.agentSlug))).get()
+      if (existingRow) {
+        await db.update(skuAgentAccess).set({ enabled: a.enabled ? 1 : 0, updatedAt: ts })
+          .where(eq(skuAgentAccess.id, existingRow.id))
+      } else {
+        await db.insert(skuAgentAccess).values({
+          id: generateId(), skuId: c.req.param('id')!, agentSlug: a.agentSlug,
+          enabled: a.enabled ? 1 : 0, createdAt: ts, updatedAt: ts,
+        })
+      }
+    }
+  }
+
   log.info({ id: c.req.param('id')!, isActive: updates.isActive }, 'sku:updated')
   return c.json(ok({ updated: true, version: updates.version ?? existing.version }))
 }
