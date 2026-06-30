@@ -5,8 +5,6 @@
 Ship the smallest thing that proves the idea. Then add one layer at a time.
 We start with Taji. We do not build Elim until Taji works end-to-end.
 
----
-
 ## Phase 0 — Foundation ✅ Complete
 
 Monorepo, workers, dashboard scaffolded and pushed to GitHub.
@@ -25,51 +23,38 @@ Monorepo, workers, dashboard scaffolded and pushed to GitHub.
 
 Branch: `feat/e2e`
 
----
-
 ## Phase 1 — End-to-End WhatsApp Test 🔨 Current
 
 Goal: A real user WhatsApps Taji, pays KES 1–3 via M-Pesa, and receives a document.
 
-### Setup (one-time)
-
+### Setup
 ```
 doppler login && doppler setup
-pnpm install
-pnpm dev
-pnpm db:seed
+pnpm install && pnpm dev && pnpm db:seed
 ngrok http 8793
 ```
 
 ### Test checklist
-
 - [ ] WhatsApp message arrives at aaf/whatsapp, forwarded to gateway
 - [ ] ConversationMachine identifies new user, runs auth (name collection)
-- [ ] SKU menu displayed: 1. Professional CV (KES 1), 2. Cover Letter (KES 2), 3. Resignation Letter (KES 3)
+- [ ] SKU menu displayed (Professional CV KES 1, Cover Letter KES 2, Resignation Letter KES 3)
 - [ ] User picks SKU, machine runs conversation_steps collection
 - [ ] All fields collected, summary sent to user
-- [ ] User confirms → M-Pesa STK push fires on user's phone
-- [ ] User enters PIN → payments callback received → transaction marked complete
-- [ ] Docgen triggered → docxtemplater fills template with field values → file stored in R2
-- [ ] WhatsApp media message sent: document delivered to user
-- [ ] Dashboard shows: conversation, transaction, document record
+- [ ] User confirms → M-Pesa STK push fires
+- [ ] User enters PIN → callback received → transaction complete
+- [ ] Docgen triggered → docxtemplater fills template → file stored in R2
+- [ ] WhatsApp document delivered to user
+- [ ] Dashboard shows conversation, transaction, document record
 
 ### Gaps to close before production
-
 - [ ] Wire docxtemplater to field_schema values from SKU
-- [ ] Send WhatsApp media message (document) after generation
+- [ ] Send WhatsApp media message after generation
 - [ ] Handle M-Pesa timeout gracefully (allow retry)
 - [ ] Returning user: skip auth, go straight to SKU menu with prefilled fields
 
-Branch: `feat/e2e` → PR → `dev`
-
----
-
 ## Phase 2 — Taji Hardening 🔒 Post e2e
 
-Goal: Taji is reliable, handles edge cases, ready for real users.
-
-- [ ] Real pricing set in dashboard (post e2e confirmation)
+- [ ] Real pricing set in dashboard
 - [ ] Returning user: prefill fields from previous document
 - [ ] Bilingual: Swahili detection + response
 - [ ] Rate limiting per phone number (KV-based)
@@ -77,13 +62,7 @@ Goal: Taji is reliable, handles edge cases, ready for real users.
 - [ ] /reset and /help commands
 - [ ] Dashboard analytics: documents per day, revenue
 
-Branch: `feat/taji-hardening` → `dev` → `main`
-
----
-
 ## Phase 3 — Elim MVP 📚 Post Taji
-
-Goal: A student WhatsApps Elim and gets tutored in a CBC subject.
 
 - [ ] Elim agent blueprint (version_1.ts for Elim)
 - [ ] CBC subject + strand awareness in system prompt
@@ -92,10 +71,6 @@ Goal: A student WhatsApps Elim and gets tutored in a CBC subject.
 - [ ] Score + weak area logging
 - [ ] Teacher flow: exam generation → .docx → WhatsApp
 
-Branch: `feat/elim-mvp`
-
----
-
 ## Phase 4 — Platform Features 🌍
 
 - [ ] Telegram channel (aaf/telegram worker)
@@ -103,8 +78,6 @@ Branch: `feat/elim-mvp`
 - [ ] Dashboard: full SKU Studio (upload → extract → price → activate)
 - [ ] Public website live (apps/web/site)
 - [ ] Multi-tenancy: schools as tenants for Elim
-
----
 
 ## Git workflow
 
@@ -115,8 +88,6 @@ dev      ← integration testing
   ↓ PR + sign-off
 main     ← production (Cloudflare auto-deploy)
 ```
-
----
 
 ## Cloudflare resource usage (free tier)
 

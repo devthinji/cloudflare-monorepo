@@ -7,13 +7,11 @@ Drizzle schema: `apps/api/gateway/drizzle/schema/database.ts`
 
 All IDs are ULIDs (sortable, URL-safe). All timestamps are ISO 8601 TEXT.
 
----
-
 ## Tables
 
 ### agents
 
-One row = one deployed agent. Everything that makes Taji "Taji" lives here.
+One row = one deployed agent.
 
 | Column          | Type    | Notes                                    |
 |-----------------|---------|------------------------------------------|
@@ -73,7 +71,7 @@ Every turn in every conversation.
 
 ### skus
 
-Every sellable document product. This drives the ConversationMachine.
+Every sellable document product. Drives the ConversationMachine.
 
 | Column             | Type    | Notes                                     |
 |--------------------|---------|-------------------------------------------|
@@ -86,7 +84,7 @@ Every sellable document product. This drives the ConversationMachine.
 | file_key           | TEXT    | R2 object key for the .docx template      |
 | preview_key        | TEXT    | R2 key for preview image                  |
 | markdown_preview   | TEXT    | Readable text version                     |
-| price              | REAL    | KES. Test: 1–3. Production: set via dashboard |
+| price              | REAL    | KES. Test: 1–3. Production: via dashboard |
 | currency           | TEXT    | "KES"                                     |
 | field_schema       | TEXT    | JSON: FieldSchema[]                       |
 | conversation_steps | TEXT    | JSON: ConversationStep[]                  |
@@ -129,8 +127,6 @@ One M-Pesa STK push = one row.
 | checkout_request_id  | TEXT    | Daraja reference                |
 | mpesa_receipt_number | TEXT    | Set on callback                 |
 | phone_number         | TEXT    | +254XXXXXXXXX                   |
-
----
 
 ## Drizzle usage
 

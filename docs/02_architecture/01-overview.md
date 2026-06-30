@@ -39,8 +39,7 @@ WhatsApp / Telegram / SMS / USSD
 
 ## Service bindings (zero latency)
 
-All workers communicate via Cloudflare Service Bindings — direct in-memory calls,
-no HTTP, no cold starts between workers.
+All workers communicate via Cloudflare Service Bindings — direct in-memory calls, no HTTP, no cold starts between workers.
 
 | Caller        | Binding name    | Target         |
 |---------------|-----------------|----------------|
@@ -48,53 +47,6 @@ no HTTP, no cold starts between workers.
 | api/gateway   | AGENT_WORKER    | api/agent      |
 | api/gateway   | DOCGEN_WORKER   | api/docgen     |
 | api/gateway   | PAYMENTS_WORKER | api/payments   |
-
-## ConversationMachine (api/gateway)
-
-The gateway hosts the ConversationMachine — a 4-stage state machine that drives
-every user session.
-
-```
-identify → auth → collect → farewell → closed
-                     │
-               sku_select
-               collection
-               validation
-               transaction
-               transaction_validation
-               generation
-               repetition_or_close
-```
-
-State is persisted in SESSIONS_KV (Cloudflare KV) between requests.
-Business logic lives entirely in `src/machine/steps/business-logic/version_1.ts`.
-The machine (`machine.ts`) is a pure executor — it reads the blueprint and runs it.
-
-## SKU-driven document pipeline
-
-Templates are uploaded once to R2 and registered as SKU records in D1.
-The PipelineFactory (api/docgen) extracts {placeholders} from .docx files,
-infers field schemas via AI, and generates conversationSteps automatically.
-
-New sellable document = new SKU record. No code change.
-
-```
-Upload .docx
-    │
-    ▼
-PipelineFactory.run('docx', 'schema')
-    │
-    ├── Unzips word/document.xml
-    ├── Extracts {placeholder} names via regex
-    ├── AI infers label, type, hint per field
-    └── Stores field_schema + conversation_steps in skus table
-            │
-            ▼
-    ConversationMachine loads SKU at runtime
-    Runs conversationSteps to collect field values
-    Calls docgen worker to fill template
-    Delivers .docx to user
-```
 
 ## AI providers
 

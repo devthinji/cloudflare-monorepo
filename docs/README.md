@@ -36,22 +36,44 @@ What needs e2e confirmation before production:
 
 ## Index
 
+### 00_overview/
 | File | What it covers |
 |------|----------------|
-| [architecture/overview.md](architecture/overview.md) | Workers, service bindings, data flow |
-| [architecture/platform.md](architecture/platform.md) | Platform as a configurable unit |
-| [products/taji.md](products/taji.md) | Taji — problem, flows, SKUs |
-| [products/elim.md](products/elim.md) | Elim — problem, flows (post-Taji) |
-| [database/schema.md](database/schema.md) | D1 tables, Drizzle schema, migrations |
-| [agents/agent-model.md](agents/agent-model.md) | How agents are configured |
-| [api/channels.md](api/channels.md) | WhatsApp-first AAF design |
-| [pipeline-factory.md](pipeline-factory.md) | PipelineFactory: docx → SKU schema |
-| [payments/mpesa.md](payments/mpesa.md) | M-Pesa Daraja integration |
-| [testing/doppler-setup.md](testing/doppler-setup.md) | Secrets management via Doppler |
-| [testing/e2e-whatsapp.md](testing/e2e-whatsapp.md) | End-to-end WhatsApp test checklist |
-| [roadmap/staging-plan.md](roadmap/staging-plan.md) | Build phases and current position |
+| [01-overview.md](00_overview/01-overview.md) | What we're building, current status, philosophy |
+| [02-platform.md](00_overview/02-platform.md) | Platform as a configurable agent factory |
 
-For AI coding agents: see `AGENTS.md` at the repo root.
+### 01_guide/
+| File | What it covers |
+|------|----------------|
+| [01-setup.md](01_guide/01-setup.md) | Local dev setup, secrets, ports |
+| [02-testing-e2e.md](01_guide/02-testing-e2e.md) | End-to-end WhatsApp test checklist |
+
+### 02_architecture/
+| File | What it covers |
+|------|----------------|
+| [01-overview.md](02_architecture/01-overview.md) | Workers, service bindings, AI providers, storage |
+| [02-conversation-machine.md](02_architecture/02-conversation-machine.md) | 4-stage state machine, SKU pipeline, data flow |
+| [03-channels.md](02_architecture/03-channels.md) | WhatsApp-first AAF design |
+| [04-database.md](02_architecture/04-database.md) | D1 tables, Drizzle schema, migrations |
+
+### 03_products/
+| File | What it covers |
+|------|----------------|
+| [01-taji.md](03_products/01-taji.md) | Taji — problem, flows, SKUs |
+| [02-elim.md](03_products/02-elim.md) | Elim — problem, flows (post-Taji) |
+| [03-agent-model.md](03_products/03-agent-model.md) | How agents are configured |
+| [04-pipeline-factory.md](03_products/04-pipeline-factory.md) | PipelineFactory: docx → SKU schema |
+
+### 04_design/
+| File | What it covers |
+|------|----------------|
+| [00-docs-design.md](04_design/00-docs-design.md) | This docs reorganization tasklist |
+| [01-staging-plan.md](04_design/01-staging-plan.md) | Build phases and current position |
+| [02-audit-101.md](04_design/02-audit-101.md) | AI provider audit (Groq → OpenRouter) |
+| [03-tasklist-101.md](04_design/03-tasklist-101.md) | OpenRouter migration tasklist |
+| [04-mpesa.md](04_design/04-mpesa.md) | M-Pesa Daraja integration |
+
+For AI coding agents: see `AGENTS.md` at repo root and `docs/AGENTS.md`.
 
 ---
 

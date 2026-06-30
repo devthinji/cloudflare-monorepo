@@ -88,6 +88,29 @@ export const documents = sqliteTable('documents', {
   createdAt:     text('created_at').notNull(),
 })
 
+// ─── Docgen: skus ──────────────────────────────────────────────────────────────
+
+export const skus = sqliteTable('skus', {
+  id:                text('id').primaryKey(),
+  name:              text('name').notNull(),
+  slug:              text('slug').notNull().unique(),
+  description:       text('description'),
+  agentSlug:         text('agent_slug').notNull(),
+  templateType:      text('template_type').notNull(),
+  fileKey:           text('file_key').notNull(),
+  previewKey:        text('preview_key'),
+  markdownPreview:   text('markdown_preview'),
+  price:             real('price').notNull().default(0),
+  currency:          text('currency').notNull().default('KES'),
+  fieldSchema:       text('field_schema').notNull().default('[]'),
+  conversationSteps: text('conversation_steps'),
+  isActive:          integer('is_active', { mode: 'boolean' }).notNull().default(false),
+  requiresReview:    integer('requires_review', { mode: 'boolean' }).notNull().default(true),
+  version:           integer('version').notNull().default(1),
+  createdAt:         text('created_at').notNull(),
+  updatedAt:         text('updated_at').notNull(),
+})
+
 // ─── Payments: transactions ───────────────────────────────────────────────────
 
 export const transactions = sqliteTable('transactions', {

@@ -2,20 +2,18 @@
 
 ## Problem
 
-Kenya's Competence Based Curriculum (CBC) is a significant shift from the old 8-4-4 system. The challenges:
-
+Kenya's Competence Based Curriculum (CBC) is a significant shift from the old 8-4-4 system:
 - Teachers spend hours creating CBC-aligned exam papers manually
-- Students in rural areas have **never used a computer or seen AI**
+- Students in rural areas have never used a computer or seen AI
 - Parents have no visibility into their child's learning progress
 - Institutions lack real-time class performance statistics
 - Revision materials are scarce and expensive
-- Students who drop off have no continuity of records
 
 ## Solution
 
 Elim is a WhatsApp-based education agent that:
 1. **Helps teachers** generate CBC-aligned exams in minutes
-2. **Tutors students** through conversation — coaching them on reading and typing as a side effect
+2. **Tutors students** through conversation
 3. **Provides parents** with progress reports and alerts
 4. **Gives institutions** class-wide statistics via dashboard
 
@@ -32,12 +30,11 @@ Student: "Amina, Grade 6"
 Elim:    "Sawa Amina! Leo tunasoma nini? Maths, English, Science?"
 Student: "Maths"
 Elim:    "Vizuri. Hebu tuanze na fractions.
-          1/2 + 1/4 = ?  Jibu hapa chini."
+          1/2 + 1/4 = ? Jibu hapa chini."
 Student: "3/4"
-Elim:    "Sahihi kabisa! 🎉 Sasa jaribu hii: 2/3 + 1/6 = ?"
+Elim:    "Sahihi kabisa! Sasa jaribu hii: 2/3 + 1/6 = ?"
 ...
-Elim:    "Leo umefanya vizuri sana Amina. Score yako: 8/10.
-          Nitamwambia mama yako. Kesho turudi Maths tena!"
+Elim:    "Leo umefanya vizuri sana Amina. Score yako: 8/10."
 ```
 
 ### Teacher — Exam Generation
@@ -53,10 +50,9 @@ Elim:    "Ninatengeneza... ✅ Exam iko ready: [download .docx]
 ```
 Parent:  "Habari za Amina masomoni?"
 Elim:    "Habari! Amina amefanya vizuri wiki hii:
-          📚 Maths: 8/10 (improving ⬆️)
-          📚 English: 6/10 (needs reading practice)
-          📚 Science: 9/10 (excellent!)
-          Amina amekaa sessions 5 wiki hii. Keep it up!"
+          Maths: 8/10 (improving)
+          English: 6/10 (needs reading practice)
+          Science: 9/10 (excellent!)"
 ```
 
 ## CBC Alignment
@@ -66,8 +62,6 @@ Elim understands the CBC structure:
 - **Sub-strands** and **Specific Learning Outcomes (SLOs)**
 - **Core Competencies**: Communication, Critical Thinking, Creativity, Citizenship, Digital Literacy, Learning to Learn, Self-efficacy
 - **Assessment criteria** per grade level
-
-All generated exams and tutorship sessions map to these official CBC components.
 
 ## Memory Design
 

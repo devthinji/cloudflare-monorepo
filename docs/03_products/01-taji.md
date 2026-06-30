@@ -47,7 +47,6 @@ Taji:  "Nakuandikia... ✅ Application letter iko ready: [download link]"
 User:  "Nataka kuacha kazi"
 Taji:  "Pole. Nitakusaidia kuandika resignation letter vizuri.
         Unaondoka lini? Na unataka sababu gani tuandike?"
-...
 ```
 
 ## Memory Design

@@ -23,7 +23,7 @@ Every agent is a row in the `agents` table with:
 
 ```
 name            → "Taji" or "Elim"
-slug            → "taji" or "elim"  
+slug            → "taji" or "elim"
 system_prompt   → Full instructions for the agent
 tools_enabled   → ["docgen", "memory", "exam_gen"] (JSON array)
 model_provider  → "openrouter" | "workers-ai"
@@ -32,22 +32,6 @@ channel         → "whatsapp" | "telegram" | "sms" | "ussd"
 channel_config  → { phone_number_id, verify_token, ... } (encrypted JSON)
 api_keys        → encrypted JSON of all secrets for this agent
 is_active       → true/false
-```
-
-## How a Message Flows
-
-```
-1. User sends WhatsApp message to Taji's number
-2. WhatsApp webhook → Gateway Worker
-3. Gateway identifies agent by phone number → loads agent config from KV (cached)
-4. Channel Worker receives message + agent config
-5. Channel Worker → loads conversation history from D1
-6. Channel Worker → calls AI (Groq) with system_prompt + history + message
-7. AI decides: respond / use tool (docgen / memory / search)
-8. If docgen tool → Channel Worker calls DocGen Worker via binding
-9. DocGen creates .docx → stores in R2 → returns download link
-10. Channel Worker sends response back to user via WhatsApp API
-11. Conversation saved to D1
 ```
 
 ## Switching "Superpowers" per Agent

@@ -43,7 +43,6 @@ POST /webhooks/whatsapp
 Called by Gateway via service binding:
 
 ```typescript
-// Gateway → Channel Worker
 interface ChannelRequest {
   agent_slug: string
   channel: 'whatsapp' | 'telegram' | 'sms'
@@ -53,13 +52,13 @@ interface ChannelRequest {
     content: string
     media_url?: string
   }
-  raw_payload: unknown  // Original webhook payload
+  raw_payload: unknown
 }
 ```
 
 ## Normalised Message Format
 
-All channels (WhatsApp, Telegram, SMS) are normalised to the same internal format before hitting the agent brain. This means adding Telegram later is just writing a new normaliser — the brain doesn't change.
+All channels (WhatsApp, Telegram, SMS) are normalised to the same internal format before hitting the agent brain. Adding Telegram later is just writing a new normaliser.
 
 ```typescript
 interface NormalisedMessage {
@@ -84,11 +83,6 @@ To add Telegram:
 3. Add `telegram` to channel_config options in dashboard
 4. The rest of the stack is unchanged
 
-To add USSD:
-1. Add webhook route: `POST /webhooks/ussd`
-2. Write USSD normaliser + menu state machine
-3. USSD is sessionless — store session in KV by phone + session_id
-
 ## Rate Limiting & Abuse
 
 ```
@@ -105,7 +99,6 @@ app.get('/webhooks/whatsapp', (c) => {
   const token = c.req.query('hub.verify_token')
   const challenge = c.req.query('hub.challenge')
 
-  // token must match agent's channel_config.verify_token
   if (mode === 'subscribe' && token === agent.channel_config.verify_token) {
     return c.text(challenge!)
   }
