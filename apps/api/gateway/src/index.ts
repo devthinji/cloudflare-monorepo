@@ -2,11 +2,10 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { timing } from 'hono/timing'
-// import { rateLimiter } from 'hono-rate-limiter' // disabled — async initStore fails in Workers
 import type { GatewayEnv } from '@repo/types'
 import { err } from '@repo/utils'
 import { createLogger } from './lib/logger'
-import { jwtMiddleware } from './middleware/auth'
+import { jwtMiddleware, requestLogger } from '@repo/middleware'
 
 import { healthRoutes }   from './routes/health'
 import { authRoutes }     from './routes/auth'
@@ -19,20 +18,9 @@ import { machineRoutes }  from './routes/machine'
 
 const app = new Hono<{ Bindings: GatewayEnv }>()
 
-// ─── Pino request logger ──────────────────────────────────────────────────────
+// ─── Colored request logger — @repo/middleware ────────────────────────────────
 
-app.use('*', async (c, next) => {
-  const log   = createLogger(c.env)
-  const start = Date.now()
-  await next()
-  log.info({
-    method: c.req.method,
-    path:   c.req.path,
-    status: c.res.status,
-    ms:     Date.now() - start,
-    ip:     c.req.header('CF-Connecting-IP'),
-  }, 'request')
-})
+app.use('*', requestLogger('gateway'))
 
 // ─── Rate limiting — 60 req/min per IP ───────────────────────────────────────
 

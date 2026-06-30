@@ -3,11 +3,14 @@ import type { DocgenWorkerEnv } from '@repo/types'
 import { ok, now } from '@repo/utils'
 import { err } from '@repo/utils'
 import { createLogger } from '../lib/logger'
+import { requestLogger } from '@repo/middleware'
 import * as TemplatesCtrl from '../controllers/templates'
 import * as SkusCtrl      from '../controllers/skus'
 import * as DocumentsCtrl from '../controllers/documents'
 
 const app = new Hono<{ Bindings: DocgenWorkerEnv }>()
+
+app.use('*', requestLogger('docgen'))
 
 app.get('/health', (c) => c.json(ok({ status: 'ok', service: 'api-docgen', timestamp: now() })))
 

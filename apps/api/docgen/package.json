@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@repo/llm-service": "workspace:*",
+    "@repo/middleware": "workspace:*",
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
     "docx": "^8.5.0",

@@ -4,6 +4,7 @@ import { ok, now } from '@repo/utils'
 import { err } from '@repo/utils'
 import { createLogger } from '../lib/logger'
 import { AgentIntelligence } from '../controllers/config'
+import { requestLogger } from '@repo/middleware'
 import * as AgentsCtrl from '../controllers/agents'
 import * as UsersCtrl   from '../controllers/users'
 import * as ChatCtrl    from '../controllers/chat'
@@ -11,6 +12,7 @@ import * as ConvCtrl    from '../controllers/conversations'
 
 const app = new Hono<{ Bindings: AgentWorkerEnv }>()
 
+app.use('*', requestLogger('agent'))
 app.use('*', (c, next) => new AgentIntelligence(c.env).middleware(c, next))
 
 app.get('/health', (c) => c.json(ok({ status: 'ok', service: 'api-agent', timestamp: now() })))

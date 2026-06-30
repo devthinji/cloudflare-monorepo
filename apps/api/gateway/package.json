@@ -9,6 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/middleware": "workspace:*",
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
     "hono": "^4.4.0",

@@ -7,7 +7,12 @@
     "types": ["@cloudflare/workers-types"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@repo/middleware": ["../../packages/middleware/src/index.ts"],
+      "@repo/types": ["../../packages/types/src/index.ts"],
+      "@repo/utils": ["../../packages/utils/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

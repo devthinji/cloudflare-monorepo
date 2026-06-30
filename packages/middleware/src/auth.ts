@@ -1,10 +1,10 @@
 import type { Context, Next } from 'hono'
-import type { GatewayEnv } from '@repo/types'
+import type { BaseWorkerEnv } from '@repo/types'
 import { verifyJwt } from '@repo/utils'
 import { err } from '@repo/utils'
 
 export async function jwtMiddleware(
-  c: Context<{ Bindings: GatewayEnv }>,
+  c: Context<{ Bindings: BaseWorkerEnv & { JWT_SECRET: string } }>,
   next: Next
 ) {
   const header = c.req.header('Authorization')
@@ -15,7 +15,6 @@ export async function jwtMiddleware(
   const payload = await verifyJwt(header.slice(7), c.env.JWT_SECRET)
   if (!payload) return c.json(err('Invalid or expired token'), 401)
 
-  // Stamp identity onto headers for downstream workers
   c.req.raw.headers.set('X-User-Id',   String(payload.sub ?? ''))
   c.req.raw.headers.set('X-User-Role', String(payload.role ?? 'user'))
 

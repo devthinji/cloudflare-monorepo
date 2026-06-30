@@ -27,6 +27,9 @@ importers:
       '@repo/llm-service':
         specifier: workspace:*
         version: link:../../../packages/llm-service
+      '@repo/middleware':
+        specifier: workspace:*
+        version: link:../../../packages/middleware
       '@repo/types':
         specifier: workspace:*
         version: link:../../../packages/types
@@ -67,6 +70,9 @@ importers:
       '@repo/llm-service':
         specifier: workspace:*
         version: link:../../../packages/llm-service
+      '@repo/middleware':
+        specifier: workspace:*
+        version: link:../../../packages/middleware
       '@repo/types':
         specifier: workspace:*
         version: link:../../../packages/types
@@ -107,6 +113,9 @@ importers:
 
   apps/api/gateway:
     dependencies:
+      '@repo/middleware':
+        specifier: workspace:*
+        version: link:../../../packages/middleware
       '@repo/types':
         specifier: workspace:*
         version: link:../../../packages/types
@@ -138,6 +147,9 @@ importers:
 
   apps/api/payments:
     dependencies:
+      '@repo/middleware':
+        specifier: workspace:*
+        version: link:../../../packages/middleware
       '@repo/types':
         specifier: workspace:*
         version: link:../../../packages/types
@@ -219,6 +231,9 @@ importers:
 
   apps/web/aaf/whatsapp:
     dependencies:
+      '@repo/middleware':
+        specifier: workspace:*
+        version: link:../../../../packages/middleware
       '@repo/types':
         specifier: workspace:*
         version: link:../../../../packages/types
@@ -351,6 +366,25 @@ importers:
       '@repo/types':
         specifier: workspace:*
         version: link:../types
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20240529.0
+        version: 4.20260629.1
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
+  packages/middleware:
+    dependencies:
+      '@repo/types':
+        specifier: workspace:*
+        version: link:../types
+      '@repo/utils':
+        specifier: workspace:*
+        version: link:../utils
+      hono:
+        specifier: ^4.0.0
+        version: 4.12.27
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240529.0
