@@ -101,3 +101,26 @@ CREATE TABLE `users` (
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
 );
+--> statement-breakpoint
+CREATE TABLE `skus` (
+  `id`                  TEXT PRIMARY KEY NOT NULL,
+  `name`                TEXT NOT NULL,
+  `slug`                TEXT NOT NULL,
+  `description`         TEXT,
+  `agent_slug`          TEXT NOT NULL,
+  `template_type`       TEXT NOT NULL,
+  `file_key`            TEXT NOT NULL,
+  `preview_key`         TEXT,
+  `markdown_preview`    TEXT,
+  `price`               REAL NOT NULL DEFAULT 0,
+  `currency`            TEXT NOT NULL DEFAULT 'KES',
+  `field_schema`        TEXT NOT NULL DEFAULT '[]',
+  `conversation_steps`  TEXT,
+  `is_active`           INTEGER NOT NULL DEFAULT 0,
+  `requires_review`     INTEGER NOT NULL DEFAULT 1,
+  `version`             INTEGER NOT NULL DEFAULT 1,
+  `created_at`          TEXT NOT NULL,
+  `updated_at`          TEXT NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `skus_slug_unique` ON `skus` (`slug`);
