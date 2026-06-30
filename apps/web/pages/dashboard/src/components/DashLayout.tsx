@@ -21,7 +21,7 @@ export default function DashLayout() {
         {/* Logo */}
         <div className="h-16 flex items-center px-5 border-b border-gray-100">
           <span className="font-bold text-base tracking-tight">
-            Taji <span className="text-blue-600">&</span> Elim
+            ASSAPPFAC Platform
           </span>
         </div>
 

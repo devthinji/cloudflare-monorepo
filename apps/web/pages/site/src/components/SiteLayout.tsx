@@ -19,7 +19,7 @@ export default function SiteLayout() {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
           <NavLink to="/" className="font-bold text-lg tracking-tight">
-            Taji <span className="text-blue-600">&</span> Elim
+            ASSAPPFAC Platform
           </NavLink>
 
           {/* Desktop nav */}
@@ -87,7 +87,7 @@ export default function SiteLayout() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 py-8 text-center text-sm text-gray-400">
-        © {new Date().getFullYear()} Taji & Elim. All rights reserved.
+        © {new Date().getFullYear()} ASSAPPFAC Platform. All rights reserved.
       </footer>
     </div>
   )

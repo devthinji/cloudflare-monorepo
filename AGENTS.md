@@ -186,9 +186,11 @@ This script (scripts/dev-local.sh) will:
 4. Apply D1 migrations locally (silent — re-runs are harmless)
 5. Start: gateway (:8787), agent (:8790), docgen (:8791), whatsapp (:8793), dashboard (:5173)
 6. Start Drizzle Studio at https://local.drizzle.studio
-7. Wait for health checks, then print a summary table with **clickable health URLs** (OSC 8 hyperlinks)
-
-Wrangler noise (banners, binding dumps, version warnings) is filtered out. Only ANSI-colored request logs and errors appear in the terminal.
+7. Wait for health checks, then switch to an **alternate screen** with a **pinned services header**:
+   - Shows service name, port, status (🟢) and **clickable health URL** (OSC 8 hyperlink)
+   - The header stays **fixed at the top** — request logs scroll below it
+   - Wrangler noise filtered out; only colored request logs + errors visible
+8. On exit (Ctrl+C), the alternate screen is restored and shutdown message printed
 
 ### Seed the database
 
