@@ -1,51 +1,64 @@
-# Project Documentation
+# Documentation
 
 > One platform. Switchable agents. Documents that change lives.
 
-## What We're Building
+## What we are building
 
-A **multi-tenant conversational document platform** where AI agents are configured via a dashboard and deployed through messaging APIs (WhatsApp, SMS, Telegram, USSD). Each agent has a name, a purpose, and a set of tools — but they all share the same infrastructure.
+A multi-tenant conversational document platform where AI agents are configured via a
+dashboard and deployed through messaging APIs. Each agent has a name, a purpose, and a
+set of tools — but they all share the same infrastructure.
 
-The first two agents:
-- **Taji** — Reduces unemployment by creating CVs, application letters, and resignation letters through WhatsApp conversation
-- **Elim** — Provides CBE/CBC-aligned exam generation, tutorship, and student progress tracking for Kenyan students, parents, and institutions
+Current agents:
+- Taji — reduces unemployment by creating CVs, cover letters, and resignation letters via WhatsApp
+- Elim — CBC-aligned exam generation and tutorship for Kenyan students, parents, and institutions
 
 ---
 
-## Documentation Index
+## Status (as of 30 June 2026)
+
+Branch `feat/e2e` is ready for end-to-end WhatsApp testing.
+
+What is complete:
+- Full 4-stage ConversationMachine (Identify → Auth → Collect → Farewell)
+- Blueprint-driven flow (version_1.ts owns all transitions, guards, messages)
+- SKU system: 3 active Taji SKUs seeded at test prices (KES 1–3)
+- M-Pesa Daraja STK push + callback
+- Dashboard wired to real API (agents, SKUs, transactions, documents, users)
+- D1 migrations, seed script, Doppler secrets management
+- Pre-flight TypeScript checks pass clean across all workers
+
+What needs e2e confirmation before production:
+- Full WhatsApp → machine → M-Pesa → docgen → WhatsApp delivery loop
+- docxtemplater render wired to collected field values
+- WhatsApp media message for generated .docx file
+
+---
+
+## Index
 
 | File | What it covers |
-|------|---------------|
-| [architecture/overview.md](architecture/overview.md) | System architecture, workers, service bindings |
-| [architecture/platform.md](architecture/platform.md) | How the platform works as one configurable unit |
-| [products/taji.md](products/taji.md) | Taji — problem, solution, flows |
-| [products/elim.md](products/elim.md) | Elim — problem, solution, flows |
-| [database/schema.md](database/schema.md) | Minimal D1 database design |
-| [agents/agent-model.md](agents/agent-model.md) | How agents are configured and switched |
-| [api/channels.md](api/channels.md) | WhatsApp-first API-as-frontend design |
-| [roadmap/staging-plan.md](roadmap/staging-plan.md) | How we build this realistically, starting now |
+|------|----------------|
+| [architecture/overview.md](architecture/overview.md) | Workers, service bindings, data flow |
+| [architecture/platform.md](architecture/platform.md) | Platform as a configurable unit |
+| [products/taji.md](products/taji.md) | Taji — problem, flows, SKUs |
+| [products/elim.md](products/elim.md) | Elim — problem, flows (post-Taji) |
+| [database/schema.md](database/schema.md) | D1 tables, Drizzle schema, migrations |
+| [agents/agent-model.md](agents/agent-model.md) | How agents are configured |
+| [api/channels.md](api/channels.md) | WhatsApp-first AAF design |
+| [pipeline-factory.md](pipeline-factory.md) | PipelineFactory: docx → SKU schema |
+| [payments/mpesa.md](payments/mpesa.md) | M-Pesa Daraja integration |
+| [testing/doppler-setup.md](testing/doppler-setup.md) | Secrets management via Doppler |
+| [testing/e2e-whatsapp.md](testing/e2e-whatsapp.md) | End-to-end WhatsApp test checklist |
+| [roadmap/staging-plan.md](roadmap/staging-plan.md) | Build phases and current position |
+
+For AI coding agents: see `AGENTS.md` at the repo root.
 
 ---
 
-## Core Philosophy
+## Core philosophy
 
-> "Same superpowers. Different intentions. One dashboard."
+> Same superpowers. Different intentions. One dashboard.
 
-The platform doesn't change. Only the agent's name, instructions, tools, model, and API keys change — configured from the admin dashboard. This makes it infinitely extensible without rebuilding the infrastructure.
-
----
-
-## Local Development
-
-To start the entire local environment, run:
-
-```bash
-pnpm dev
-```
-
-This single command will:
-- Validate your environment
-- Apply all D1 database migrations locally
-- Start the API microservices (`agent`, `docgen`, `gateway`, `payments`)
-- Start the Web frontend (`dashboard`, `whatsapp`)
-- **Automatically launch Drizzle Studio (`db:studio`)** for real-time database management at `https://local.drizzle.studio`
+The platform does not change. Only the agent's name, instructions, tools, model, and
+API keys change — configured from the admin dashboard. New sellable document types are
+added as SKU records, not code changes.

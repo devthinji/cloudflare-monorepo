@@ -1,156 +1,129 @@
-# Staging Plan — How We Build This Realistically
+# Staging Plan — Build Phases
 
 ## Principle
 
-> Ship the smallest thing that proves the idea. Then add one layer at a time.
-
-We are on Cloudflare free tier. We start with Taji. We don't build Elim until Taji works end-to-end.
+Ship the smallest thing that proves the idea. Then add one layer at a time.
+We start with Taji. We do not build Elim until Taji works end-to-end.
 
 ---
 
-## Phase 0 — Foundation (Current) ✅
+## Phase 0 — Foundation ✅ Complete
 
-**Goal:** Monorepo, workers, dashboard scaffolded and pushed to GitHub.
+Monorepo, workers, dashboard scaffolded and pushed to GitHub.
 
 - [x] pnpm + Turborepo monorepo
-- [x] Gateway Worker (Hono, JWT, routing)
-- [x] Auth Worker (KV sessions)
-- [x] Data Worker (D1 CRUD)
-- [x] React + shadcn dashboard
-- [x] GitHub repo with main/staging/feat/test branches
-- [x] Full documentation
+- [x] Gateway Worker (Hono, JWT, ConversationMachine)
+- [x] Agent Worker (TajiAgent, ElimAgent as Durable Objects)
+- [x] Docgen Worker (PipelineFactory, SKU CRUD, R2)
+- [x] Payments Worker (M-Pesa Daraja STK push + callback)
+- [x] WhatsApp AAF Worker (Meta webhook, phone normalisation)
+- [x] React dashboard (agents, SKUs, conversations, documents, users, transactions)
+- [x] D1 schema + migrations (all 8 tables)
+- [x] Dev seed: Taji + Elim agents, 3 Taji SKUs at test prices
+- [x] Doppler secrets management
+- [x] Pre-flight tsc checks clean
 
-**Branch:** `main`
-
----
-
-## Phase 1 — Core Infrastructure (Next) 🔨
-
-**Goal:** Workers talk to each other. DB is real. Dashboard works.
-
-### Tasks
-- [ ] Add Channel Worker (new Hono worker, handles WhatsApp webhooks)
-- [ ] Add DocGen Worker (docx + docxtemplater, R2 for storage)
-- [ ] Update D1 schema to match `database/schema.md`
-- [ ] Wire service bindings: Gateway → Channel, Channel → DocGen, Channel → Data
-- [ ] Dashboard: Agent CRUD (create/edit/delete agents, toggle active)
-- [ ] KV: agent config caching
-- [ ] R2: bucket for document storage
-
-**Branch:** `feat/phase-1` → merge to `staging` → test → merge to `main`
-
-**Cloudflare Resources Needed:**
-- 1x D1 database
-- 1x KV namespace
-- 1x R2 bucket
-- 5x Workers (gateway, auth, data, channel, docgen)
-- 1x Pages project (dashboard)
-
-**Free Tier Check:**
-| Resource | Free Limit | Our Usage |
-|----------|-----------|-----------|
-| Workers | 100k req/day | ✅ Fine for staging |
-| D1 | 5M rows read/day | ✅ Fine |
-| KV | 100k reads/day | ✅ Fine |
-| R2 | 10GB storage | ✅ Fine |
-| Pages | Unlimited | ✅ |
+Branch: `feat/e2e`
 
 ---
 
-## Phase 2 — Taji MVP 🎯
+## Phase 1 — End-to-End WhatsApp Test 🔨 Current
 
-**Goal:** A real user can WhatsApp Taji and get a CV back.
+Goal: A real user WhatsApps Taji, pays KES 1–3 via M-Pesa, and receives a document.
 
-### Tasks
-- [ ] WhatsApp Business API setup (Meta Developer Account)
-- [ ] Groq API key + agent brain in Channel Worker
-- [ ] CV conversation flow (multi-turn, saves to D1)
-- [ ] CV docx template (professional, clean)
-- [ ] DocGen: populate template with user data → R2 → WhatsApp doc message
-- [ ] User profile saved to D1 after CV creation
-- [ ] Dashboard: view conversations, documents generated
-- [ ] Application letter flow
-- [ ] Test with 3-5 real users
+### Setup (one-time)
 
-**Branch:** `feat/taji-mvp` → `staging` → `main`
+```
+doppler login && doppler setup
+pnpm install
+pnpm dev
+pnpm db:seed
+ngrok http 8793
+```
+
+### Test checklist
+
+- [ ] WhatsApp message arrives at aaf/whatsapp, forwarded to gateway
+- [ ] ConversationMachine identifies new user, runs auth (name collection)
+- [ ] SKU menu displayed: 1. Professional CV (KES 1), 2. Cover Letter (KES 2), 3. Resignation Letter (KES 3)
+- [ ] User picks SKU, machine runs conversation_steps collection
+- [ ] All fields collected, summary sent to user
+- [ ] User confirms → M-Pesa STK push fires on user's phone
+- [ ] User enters PIN → payments callback received → transaction marked complete
+- [ ] Docgen triggered → docxtemplater fills template with field values → file stored in R2
+- [ ] WhatsApp media message sent: document delivered to user
+- [ ] Dashboard shows: conversation, transaction, document record
+
+### Gaps to close before production
+
+- [ ] Wire docxtemplater to field_schema values from SKU
+- [ ] Send WhatsApp media message (document) after generation
+- [ ] Handle M-Pesa timeout gracefully (allow retry)
+- [ ] Returning user: skip auth, go straight to SKU menu with prefilled fields
+
+Branch: `feat/e2e` → PR → `dev`
 
 ---
 
-## Phase 3 — Taji Hardening 🔒
+## Phase 2 — Taji Hardening 🔒 Post e2e
 
-**Goal:** Taji is reliable, handles edge cases, ready for real users.
+Goal: Taji is reliable, handles edge cases, ready for real users.
 
-### Tasks
-- [ ] Conversation auth (OTP via WhatsApp to identify returning users)
-- [ ] Rate limiting (KV-based, per phone number)
-- [ ] Error handling in all flows (AI timeout, docgen fail, etc.)
-- [ ] Resignation letter flow
-- [ ] Cover letter flow
-- [ ] "Remember me" — returning user skips re-entering details
-- [ ] Bilingual: English + Swahili detection and response
-- [ ] Analytics: docs generated per day (dashboard chart)
+- [ ] Real pricing set in dashboard (post e2e confirmation)
+- [ ] Returning user: prefill fields from previous document
+- [ ] Bilingual: Swahili detection + response
+- [ ] Rate limiting per phone number (KV-based)
+- [ ] Error recovery: AI timeout, docgen fail, payment fail
+- [ ] /reset and /help commands
+- [ ] Dashboard analytics: documents per day, revenue
+
+Branch: `feat/taji-hardening` → `dev` → `main`
 
 ---
 
-## Phase 4 — Elim MVP 📚
+## Phase 3 — Elim MVP 📚 Post Taji
 
-**Goal:** A student can WhatsApp Elim and get tutored in Maths.
+Goal: A student WhatsApps Elim and gets tutored in a CBC subject.
 
-### Tasks
-- [ ] Elim agent config in dashboard (new system prompt, tools)
-- [ ] Same WhatsApp infrastructure — just a different number
-- [ ] Student session tracking (D1: student_sessions table)
+- [ ] Elim agent blueprint (version_1.ts for Elim)
 - [ ] CBC subject + strand awareness in system prompt
-- [ ] Score tracking per session
-- [ ] Teacher flow: exam generation → docx → download
-- [ ] Parent flow: progress summary on demand
+- [ ] Student session tracking (student_sessions table)
+- [ ] Practice question flow
+- [ ] Score + weak area logging
+- [ ] Teacher flow: exam generation → .docx → WhatsApp
+
+Branch: `feat/elim-mvp`
 
 ---
 
-## Phase 5 — Platform Features 🌍
+## Phase 4 — Platform Features 🌍
 
-**Goal:** The platform is real. Other agents can be created.
-
-### Tasks
-- [ ] Dashboard: full agent builder UI
-- [ ] Telegram channel support
-- [ ] SMS channel support (Africa's Talking)
-- [ ] M-Pesa Daraja STK Push integration (live credentials ready)
-- [ ] Public website (marketing page for Taji + Elim)
-- [ ] Deepgram voice support (voice notes → text → agent)
+- [ ] Telegram channel (aaf/telegram worker)
+- [ ] SMS channel (aaf/sms, Africa's Talking)
+- [ ] Dashboard: full SKU Studio (upload → extract → price → activate)
+- [ ] Public website live (apps/web/site)
+- [ ] Multi-tenancy: schools as tenants for Elim
 
 ---
 
-## What We're NOT Building Yet
-
-| Feature | Why not now |
-|---------|------------|
-| Mobile app | WhatsApp IS the app |
-| User accounts with passwords | Phone + OTP is enough |
-| Multi-model routing | Groq first, add fallbacks later |
-| Payments | Free first, monetize after users trust it |
-| USSD | Add after WhatsApp is stable |
-| Instagram/Facebook | Add after core platform is solid |
-
----
-
-## Git Workflow
+## Git workflow
 
 ```
-feat/phase-1      ← active development
-      ↓ PR + review
-staging           ← integration testing, WhatsApp sandbox
-      ↓ PR + sign-off
-main              ← production (Cloudflare auto-deploy)
+feat/*   ← active development (Clem + local dev)
+  ↓ PR
+dev      ← integration testing
+  ↓ PR + sign-off
+main     ← production (Cloudflare auto-deploy)
 ```
-
-Every feature starts as `feat/<feature-name>`, tested in staging, then merged to main.
 
 ---
 
-## Next Immediate Action
+## Cloudflare resource usage (free tier)
 
-1. **You provide:** Cloudflare API Token + Account ID
-2. **I deploy:** Phase 0 infrastructure to Cloudflare
-3. **We build:** Phase 1 Channel + DocGen workers together
-4. **Target:** Taji MVP live on WhatsApp within 2 weeks
+| Resource | Free limit     | Current usage      |
+|----------|----------------|--------------------|
+| Workers  | 100k req/day   | 5 workers deployed |
+| D1       | 5M rows/day    | 1 database         |
+| KV       | 100k reads/day | 2 namespaces       |
+| R2       | 10GB storage   | 1 bucket           |
+| Pages    | Unlimited      | 2 sites            |

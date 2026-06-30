@@ -1,80 +1,115 @@
 # Architecture Overview
 
-## The Five Workers
+## The five workers
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        PUBLIC INTERNET                          │
-│         WhatsApp │ SMS │ Telegram │ USSD │ Email │ Web          │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-                ┌────────▼────────┐
-                │    GATEWAY      │  ← Single entry point
-                │    Worker       │    JWT auth, routing, CORS
-                └────────┬────────┘
-         ┌───────────────┼───────────────┐
-         │               │               │
-┌────────▼──────┐ ┌──────▼──────┐ ┌─────▼────────┐
-│  AUTH Worker  │ │ DATA Worker │ │CHANNEL Worker│
-│  KV Sessions  │ │  D1 SQLite  │ │(API-as-Front)│
-│  JWT + OTP    │ │  CRUD + Doc │ │ WhatsApp API │
-└───────────────┘ │  Management │ │ SMS/Telegram │
-                  └──────┬──────┘ └─────┬────────┘
-                         │              │
-                  ┌──────▼──────┐       │
-                  │  DOCGEN     │◄──────┘
-                  │  Worker     │
-                  │  docx/DOCX  │
-                  │  templater  │
-                  │  Google APIs│
-                  └─────────────┘
+WhatsApp / Telegram / SMS / USSD
+        │
+        ▼
+┌───────────────────┐
+│   aaf/whatsapp    │  Validates Meta signature
+│   aaf/telegram    │  Normalises phone: +254XXXXXXXXX
+│   aaf/sms         │  POSTs to gateway
+└────────┬──────────┘
+         │ service binding
+         ▼
+┌───────────────────┐
+│   api/gateway     │  ConversationMachine (4-stage)
+│   (entry point)   │  JWT auth, CORS, rate limiting
+└────────┬──────────┘
+         │ service bindings
+    ┌────┴────┬──────────┐
+    ▼         ▼          ▼
+┌────────┐ ┌────────┐ ┌──────────┐
+│ agent  │ │ docgen │ │ payments │
+│ worker │ │ worker │ │ worker   │
+│ DO     │ │ R2+D1  │ │ Daraja   │
+└────────┘ └────────┘ └──────────┘
+         │
+         ▼
+┌────────────────────┐
+│   platform-db (D1) │  Shared by all workers
+└────────────────────┘
 
-         ┌─────────────────────────────┐
-         │        DASHBOARD            │  ← Cloudflare Pages
-         │  React + shadcn/ui          │    Admin configures agents
-         │  Agent config, stats, keys  │    One config = new agent
-         └─────────────────────────────┘
+┌────────────────────┐
+│   dashboard        │  Cloudflare Pages
+│   site             │  React + Vite + Tailwind
+└────────────────────┘
 ```
 
-## Service Bindings (Zero Latency, No HTTP)
+## Service bindings (zero latency)
 
-All workers communicate via **Cloudflare Service Bindings** — direct in-memory calls, no network hop, no cold starts between workers.
+All workers communicate via Cloudflare Service Bindings — direct in-memory calls,
+no HTTP, no cold starts between workers.
+
+| Caller        | Binding name    | Target         |
+|---------------|-----------------|----------------|
+| aaf/whatsapp  | API_GATEWAY     | api/gateway    |
+| api/gateway   | AGENT_WORKER    | api/agent      |
+| api/gateway   | DOCGEN_WORKER   | api/docgen     |
+| api/gateway   | PAYMENTS_WORKER | api/payments   |
+
+## ConversationMachine (api/gateway)
+
+The gateway hosts the ConversationMachine — a 4-stage state machine that drives
+every user session.
 
 ```
-Gateway  →  Auth Worker    (binding: AUTH)
-Gateway  →  Data Worker    (binding: DATA)
-Gateway  →  Channel Worker (binding: CHANNEL)
-Channel  →  DocGen Worker  (binding: DOCGEN)
-Channel  →  Data Worker    (binding: DATA)
-DocGen   →  Data Worker    (binding: DATA)
+identify → auth → collect → farewell → closed
+                     │
+               sku_select
+               collection
+               validation
+               transaction
+               transaction_validation
+               generation
+               repetition_or_close
 ```
 
-## AI Layer
+State is persisted in SESSIONS_KV (Cloudflare KV) between requests.
+Business logic lives entirely in `src/machine/steps/business-logic/version_1.ts`.
+The machine (`machine.ts`) is a pure executor — it reads the blueprint and runs it.
+
+## SKU-driven document pipeline
+
+Templates are uploaded once to R2 and registered as SKU records in D1.
+The PipelineFactory (api/docgen) extracts {placeholders} from .docx files,
+infers field schemas via AI, and generates conversationSteps automatically.
+
+New sellable document = new SKU record. No code change.
 
 ```
-Channel Worker
+Upload .docx
     │
     ▼
-Agent Brain (configured per agent in DB)
-    ├── Provider: Groq (first) → Cloudflare Workers AI → others
-    ├── Model: llama-3.3-70b-versatile / whisper / etc.
-    ├── Instructions: system prompt from DB
-    ├── Tools: enabled tool set per agent
-    └── Memory: conversation history from D1
+PipelineFactory.run('docx', 'schema')
+    │
+    ├── Unzips word/document.xml
+    ├── Extracts {placeholder} names via regex
+    ├── AI infers label, type, hint per field
+    └── Stores field_schema + conversation_steps in skus table
+            │
+            ▼
+    ConversationMachine loads SKU at runtime
+    Runs conversationSteps to collect field values
+    Calls docgen worker to fill template
+    Delivers .docx to user
 ```
+
+## AI providers
+
+```
+Primary:  OpenRouter  → openai/gpt-4o-mini   (all LLM tasks)
+Fallback: Workers AI  → @cf/meta/llama-3.1-8b-instruct
+```
+
+Configured per agent in the `agents` table. Switched without code change via dashboard.
 
 ## Storage
 
-| Store | What | Why |
-|-------|------|-----|
-| D1 SQLite | All structured data | Free tier, serverless, fast |
-| KV | Sessions, agent configs cache | Sub-ms reads |
-| R2 | Generated documents, uploads | Object storage |
-
-## Key Design Decisions
-
-1. **One wrangler.toml per worker** — each worker deployed independently but bound together
-2. **Agent config lives in DB** — no code change needed to create a new agent
-3. **Channel worker is the "frontend"** — it handles all messaging APIs, translates to internal format
-4. **DocGen is a pure service** — called by any worker, never public-facing
-5. **Dashboard is the control plane** — model, provider, API keys, tools, system prompt — all configurable
+| Store          | What                            | Free tier limit |
+|----------------|---------------------------------|-----------------|
+| D1 SQLite      | All structured data (8 tables)  | 5M rows/day     |
+| KV             | Sessions, agent config cache    | 100k reads/day  |
+| R2             | Generated docs, uploaded templates | 10GB storage |
+| Durable Objects| Active conversation state (DO)  | 1M req/month    |

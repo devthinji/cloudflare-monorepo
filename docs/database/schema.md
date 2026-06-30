@@ -1,175 +1,151 @@
-# Database Schema — Minimal D1 Design
+# Database Schema
 
-## Design Philosophy
+Single D1 database: `platform-db`
 
-> Simple tables. No over-engineering. Every table has a clear, single responsibility.
-> We start with what Taji needs. Elim shares 80% of the same tables.
+Migration: `apps/api/gateway/drizzle/migration/0000_init.sql`
+Drizzle schema: `apps/api/gateway/drizzle/schema/database.ts`
 
----
-
-## Core Tables (Shared by all agents)
-
-### `agents`
-The heart of the platform. One row = one deployed agent.
-
-```sql
-CREATE TABLE agents (
-  id              TEXT PRIMARY KEY,          -- ulid
-  name            TEXT NOT NULL,             -- "Taji", "Elim"
-  slug            TEXT NOT NULL UNIQUE,      -- "taji", "elim"
-  description     TEXT,
-  system_prompt   TEXT NOT NULL,             -- AI instructions
-  tools_enabled   TEXT NOT NULL DEFAULT '[]',-- JSON array: ["docgen","memory"]
-  model_provider  TEXT NOT NULL DEFAULT 'openrouter',
-  model_id        TEXT NOT NULL DEFAULT 'openai/gpt-4o-mini',
-  channel         TEXT NOT NULL DEFAULT 'whatsapp',
-  channel_config  TEXT,                      -- encrypted JSON
-  api_keys        TEXT,                      -- encrypted JSON
-  is_active       INTEGER NOT NULL DEFAULT 1,
-  created_at      TEXT NOT NULL,
-  updated_at      TEXT NOT NULL
-);
-```
-
-### `users`
-Anyone who interacts with any agent. Identified by phone number.
-
-```sql
-CREATE TABLE users (
-  id              TEXT PRIMARY KEY,
-  phone           TEXT NOT NULL UNIQUE,      -- +254712345678
-  name            TEXT,
-  role            TEXT NOT NULL DEFAULT 'user', -- user | admin
-  agent_slug      TEXT,                      -- which agent they use
-  tenant_id       TEXT,                      -- for schools/orgs
-  metadata        TEXT,                      -- JSON: grade, school, etc.
-  created_at      TEXT NOT NULL,
-  updated_at      TEXT NOT NULL
-);
-```
-
-### `conversations`
-Every conversation session with an agent.
-
-```sql
-CREATE TABLE conversations (
-  id              TEXT PRIMARY KEY,
-  user_id         TEXT NOT NULL REFERENCES users(id),
-  agent_slug      TEXT NOT NULL,
-  channel         TEXT NOT NULL DEFAULT 'whatsapp',
-  status          TEXT NOT NULL DEFAULT 'active', -- active | closed
-  context         TEXT,                      -- JSON: current doc being built
-  created_at      TEXT NOT NULL,
-  updated_at      TEXT NOT NULL
-);
-```
-
-### `messages`
-Every message in every conversation.
-
-```sql
-CREATE TABLE messages (
-  id              TEXT PRIMARY KEY,
-  conversation_id TEXT NOT NULL REFERENCES conversations(id),
-  role            TEXT NOT NULL,             -- user | assistant | tool
-  content         TEXT NOT NULL,
-  tool_call       TEXT,                      -- JSON if tool was used
-  tokens_used     INTEGER DEFAULT 0,
-  created_at      TEXT NOT NULL
-);
-```
-
-### `documents`
-Every document ever generated, for any user, by any agent.
-
-```sql
-CREATE TABLE documents (
-  id              TEXT PRIMARY KEY,
-  user_id         TEXT NOT NULL REFERENCES users(id),
-  agent_slug      TEXT NOT NULL,
-  type            TEXT NOT NULL,             -- cv | application_letter | exam | report
-  title           TEXT NOT NULL,
-  file_url        TEXT,                      -- R2 URL
-  template_used   TEXT,
-  metadata        TEXT,                      -- JSON: job_title, grade, strand, etc.
-  created_at      TEXT NOT NULL
-);
-```
-
-### `tenants`
-Schools, companies, NGOs — organizations using the platform.
-
-```sql
-CREATE TABLE tenants (
-  id              TEXT PRIMARY KEY,
-  name            TEXT NOT NULL,
-  type            TEXT NOT NULL,             -- school | company | ngo
-  agent_slug      TEXT NOT NULL,
-  contact_phone   TEXT,
-  contact_email   TEXT,
-  settings        TEXT,                      -- JSON
-  created_at      TEXT NOT NULL
-);
-```
+All IDs are ULIDs (sortable, URL-safe). All timestamps are ISO 8601 TEXT.
 
 ---
 
-## Taji-Specific Data
+## Tables
 
-Stored in `users.metadata` as JSON (no separate table needed at start):
+### agents
 
-```json
-{
-  "full_name": "John Kamau",
-  "email": "john@email.com",
-  "education": [...],
-  "experience": [...],
-  "skills": [...],
-  "summary": "...",
-  "last_cv_id": "doc_xyz"
-}
+One row = one deployed agent. Everything that makes Taji "Taji" lives here.
+
+| Column          | Type    | Notes                                    |
+|-----------------|---------|------------------------------------------|
+| id              | TEXT PK | ULID                                     |
+| name            | TEXT    | "Taji"                                   |
+| slug            | TEXT UQ | "taji"                                   |
+| description     | TEXT    |                                          |
+| system_prompt   | TEXT    | Full AI persona                          |
+| tools_enabled   | TEXT    | JSON string[]                            |
+| model_provider  | TEXT    | "openrouter" or "workers-ai"             |
+| model_id        | TEXT    | "openai/gpt-4o-mini"                     |
+| channel         | TEXT    | "whatsapp"                               |
+| channel_config  | TEXT    | encrypted JSON                           |
+| api_keys        | TEXT    | encrypted JSON                           |
+| is_active       | INTEGER | 1 = active                               |
+
+### users
+
+Anyone who has sent a WhatsApp message to any agent.
+
+| Column        | Type    | Notes                                      |
+|---------------|---------|--------------------------------------------|
+| id            | TEXT PK |                                            |
+| name          | TEXT    | Collected during auth stage                |
+| phone         | TEXT    | +254XXXXXXXXX format                       |
+| channel       | TEXT    | "whatsapp"                                 |
+| agent_slug    | TEXT    | Which agent this user talks to             |
+| is_registered | INTEGER | 1 = name collected, auth complete          |
+| is_blocked    | INTEGER | 1 = blocked from service                   |
+| metadata      | TEXT    | JSON: any extra user data                  |
+
+### conversations
+
+One session = one row. Status closes after farewell.
+
+| Column    | Type    | Notes                          |
+|-----------|---------|--------------------------------|
+| id        | TEXT PK |                                |
+| user_id   | TEXT    |                                |
+| agent_slug| TEXT    |                                |
+| channel   | TEXT    |                                |
+| status    | TEXT    | "active" or "closed"           |
+| context   | TEXT    | JSON: machine context snapshot |
+
+### messages
+
+Every turn in every conversation.
+
+| Column          | Type    | Notes               |
+|-----------------|---------|---------------------|
+| id              | TEXT PK |                     |
+| conversation_id | TEXT    |                     |
+| role            | TEXT    | "user" or "assistant"|
+| content         | TEXT    |                     |
+| tool_call       | TEXT    | JSON if tool used   |
+| tokens_used     | INTEGER |                     |
+
+### skus
+
+Every sellable document product. This drives the ConversationMachine.
+
+| Column             | Type    | Notes                                     |
+|--------------------|---------|-------------------------------------------|
+| id                 | TEXT PK |                                           |
+| name               | TEXT    | "Professional CV"                         |
+| slug               | TEXT UQ | "professional-cv"                         |
+| description        | TEXT    |                                           |
+| agent_slug         | TEXT    | Which agent sells this                    |
+| template_type      | TEXT    | "docx"                                    |
+| file_key           | TEXT    | R2 object key for the .docx template      |
+| preview_key        | TEXT    | R2 key for preview image                  |
+| markdown_preview   | TEXT    | Readable text version                     |
+| price              | REAL    | KES. Test: 1–3. Production: set via dashboard |
+| currency           | TEXT    | "KES"                                     |
+| field_schema       | TEXT    | JSON: FieldSchema[]                       |
+| conversation_steps | TEXT    | JSON: ConversationStep[]                  |
+| is_active          | INTEGER | 1 = visible to users                      |
+| requires_review    | INTEGER | 1 = admin must approve after AI extraction|
+| version            | INTEGER |                                           |
+
+### templates (legacy)
+
+Older template records. Superseded by skus. Do not use for new features.
+
+### documents
+
+Every document ever generated.
+
+| Column        | Type    | Notes                          |
+|---------------|---------|--------------------------------|
+| id            | TEXT PK |                                |
+| user_id       | TEXT    |                                |
+| agent_slug    | TEXT    |                                |
+| template_id   | TEXT    | SKU id used                    |
+| type          | TEXT    | "cv", "cover_letter", etc.     |
+| title         | TEXT    |                                |
+| file_url      | TEXT    | R2 public URL of generated file|
+| field_values  | TEXT    | JSON: collected user data      |
+| transaction_id| TEXT    | Linked payment                 |
+
+### transactions
+
+One M-Pesa STK push = one row.
+
+| Column               | Type    | Notes                           |
+|----------------------|---------|---------------------------------|
+| id                   | TEXT PK |                                 |
+| user_id              | TEXT    |                                 |
+| agent_slug           | TEXT    |                                 |
+| provider             | TEXT    | "mpesa"                         |
+| amount               | REAL    | KES                             |
+| status               | TEXT    | pending / completed / failed    |
+| checkout_request_id  | TEXT    | Daraja reference                |
+| mpesa_receipt_number | TEXT    | Set on callback                 |
+| phone_number         | TEXT    | +254XXXXXXXXX                   |
+
+---
+
+## Drizzle usage
+
+Read:
+```typescript
+import { db } from './db'
+import { skus } from '../drizzle/schema/database'
+import { eq } from 'drizzle-orm'
+
+const sku = await db.select().from(skus).where(eq(skus.slug, 'professional-cv')).get()
 ```
 
----
-
-## Elim-Specific Tables
-
-### `student_sessions`
-Tracks individual tutorship sessions for scoring and progress.
-
-```sql
-CREATE TABLE student_sessions (
-  id              TEXT PRIMARY KEY,
-  user_id         TEXT NOT NULL REFERENCES users(id),
-  conversation_id TEXT NOT NULL REFERENCES conversations(id),
-  subject         TEXT NOT NULL,             -- Maths, English, Science
-  strand          TEXT,                      -- CBC strand
-  grade           TEXT NOT NULL,
-  score           INTEGER,                   -- out of total
-  total           INTEGER,
-  weak_areas      TEXT,                      -- JSON array
-  created_at      TEXT NOT NULL
-);
+Create:
+```typescript
+await db.insert(skus).values({ id: generateId(), slug: 'new-sku', ... })
 ```
 
----
-
-## Key Design Decisions
-
-| Decision | Reason |
-|----------|--------|
-| ULID for all IDs | Sortable, URL-safe, no UUID collisions |
-| JSON in metadata columns | Avoids premature schema complexity |
-| One `documents` table for all doc types | Simple, agent-agnostic |
-| Phone number as user identifier | Users auth via WhatsApp — no email/password |
-| `agent_slug` on every table | Easy multi-agent queries, no joins needed |
-| Start with 6 tables | Enough for Taji v1 + Elim v1. Add as needed. |
-
----
-
-## What We Don't Have Yet (And Don't Need Yet)
-
-- ❌ Payments/transactions table — add when M-Pesa integration starts
-- ❌ Notifications table — use conversation messages for now
-- ❌ Audit log — add when needed for compliance
-- ❌ Separate profile tables — metadata JSON is enough for v1
+Never write raw SQL in TypeScript files. Migrations only in .sql files.
