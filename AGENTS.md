@@ -183,9 +183,12 @@ This script (scripts/dev-local.sh) will:
 1. Kill any stale processes on dev ports
 2. Inject Doppler secrets into each worker's .dev.vars
 3. Run pre-flight validation
-4. Apply D1 migrations locally
+4. Apply D1 migrations locally (silent — re-runs are harmless)
 5. Start: gateway (:8787), agent (:8790), docgen (:8791), whatsapp (:8793), dashboard (:5173)
 6. Start Drizzle Studio at https://local.drizzle.studio
+7. Wait for health checks, then print a summary table with **clickable health URLs** (OSC 8 hyperlinks)
+
+Wrangler noise (banners, binding dumps, version warnings) is filtered out. Only ANSI-colored request logs and errors appear in the terminal.
 
 ### Seed the database
 
