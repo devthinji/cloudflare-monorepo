@@ -1,0 +1,10 @@
+# Doppler CLI config
+# Project: cloudflare-monorepo
+# Environments: dev (local), stg (staging), prd (production)
+#
+# Run `doppler setup` to link this config to your Doppler project.
+# Run `pnpm dev` to start all workers with secrets injected automatically.
+
+setup:
+  project: cloudflare-monorepo
+  config: dev
