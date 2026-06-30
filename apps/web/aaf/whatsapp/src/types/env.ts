@@ -9,4 +9,4 @@ export interface Env {
 }
 
 export interface Session { agentSlug?: string }
-export const DEFAULT_AGENT = 'default'
+export const DEFAULT_AGENT = 'taji'

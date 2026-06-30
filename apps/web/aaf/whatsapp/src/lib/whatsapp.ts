@@ -24,6 +24,12 @@ export interface WaWebhookPayload {
   }[]
 }
 
+function normalisePhone(raw: string): string {
+  // WhatsApp sends digits only (e.g. 254712345678).
+  // Strip any non-digit chars so userId is always consistent.
+  return raw.replace(/\D/g, '')
+}
+
 export function parseIncomingMessage(payload: WaWebhookPayload): {
   from: string; text: string; messageId: string; phoneNumberId: string
 } | null {
@@ -32,7 +38,7 @@ export function parseIncomingMessage(payload: WaWebhookPayload): {
   const msg = change.value.messages?.[0]
   if (!msg || msg.type !== 'text') return null
   return {
-    from:          msg.from,
+    from:          normalisePhone(msg.from),
     text:          msg.text.body.trim(),
     messageId:     msg.id,
     phoneNumberId: change.value.metadata.phone_number_id,

@@ -1,59 +1,100 @@
+// ─── ConversationMachine — pure executor ──────────────────────────────────────
+//
+// This class does NOT own any flow logic.
+// All stages, transitions, guards, and messages come from the Blueprint.
+// To change the conversation flow, edit the blueprint in:
+//   steps/business-logic/version_1.ts
+
 import { type MachineContext, type LiveSKU, type LiveFieldSchema, initialContext } from './states'
+import { BlueprintV1, type Blueprint, TRANSITIONS } from './steps/business-logic/version_1'
+
+// ─── External services (injected by the gateway route) ───────────────────────
 
 export interface MachineServices {
-  lookupUser:   (userId: string)              => Promise<{ found: boolean; name?: string; registered?: boolean }>
-  registerUser: (userId: string, name: string)=> Promise<void>
-  listSKUs:     (agentSlug: string)           => Promise<LiveSKU[]>
-  loadSKU:      (skuId: string)               => Promise<LiveSKU | null>
+  lookupUser:      (userId: string)               => Promise<{ found: boolean; name?: string; registered?: boolean }>
+  registerUser:    (userId: string, name: string) => Promise<void>
+  listSKUs:        (agentSlug: string)            => Promise<LiveSKU[]>
+  loadSKU:         (skuId: string)                => Promise<LiveSKU | null>
   initiatePayment: (ctx: MachineContext, sku: LiveSKU) => Promise<{ txId: string; checkoutRequestId: string; customerMessage: string } | null>
-  checkPayment:    (checkoutRequestId: string)          => Promise<'pending' | 'completed' | 'failed'>
-  renderDoc: (ctx: MachineContext, sku: LiveSKU) => Promise<{ fileUrl: string; title: string } | null>
+  checkPayment:    (checkoutRequestId: string)    => Promise<'pending' | 'completed' | 'failed'>
+  renderDoc:       (ctx: MachineContext, sku: LiveSKU) => Promise<{ fileUrl: string; title: string } | null>
 }
 
 export interface AdvanceResult {
-  reply: string; context: MachineContext; done: boolean
+  reply:   string
+  context: MachineContext
+  done:    boolean
 }
 
+// ─── Machine ──────────────────────────────────────────────────────────────────
+
 export class ConversationMachine {
-  constructor(private svc: MachineServices) {}
+  private bp: Blueprint
+
+  constructor(private svc: MachineServices, blueprint: Blueprint = BlueprintV1) {
+    this.bp = blueprint
+  }
+
+  // ── Public entry point ────────────────────────────────────────────────────
 
   async advance(ctx: MachineContext, input: string): Promise<AdvanceResult> {
     ctx = { ...ctx, updatedAt: new Date().toISOString() }
 
     switch (ctx.stage) {
-      case 'identify': return this.stageIdentify(ctx, input)
-      case 'auth':     return this.stageAuth(ctx, input)
-      case 'collect':  return this.stageCollect(ctx, input)
-      case 'farewell': return this.stageFarewell(ctx)
-      case 'closed':   return this.stageReopen(ctx)
-      default: return { reply: 'Something went wrong. Send anything to restart.', context: initialContext(ctx.userId, ctx.agentSlug, ctx.channel), done: false }
+      case 'identify': return this.runIdentify(ctx, input)
+      case 'auth':     return this.runAuth(ctx, input)
+      case 'collect':  return this.runCollect(ctx, input)
+      case 'farewell': return this.runFarewell(ctx)
+      case 'closed':   return this.runReopen(ctx)
+      default:
+        return {
+          reply:   this.bp.messages.genericError,
+          context: initialContext(ctx.userId, ctx.agentSlug, ctx.channel),
+          done:    false,
+        }
     }
   }
 
-  private async stageIdentify(ctx: MachineContext, _input: string): Promise<AdvanceResult> {
+  // ── Stage: identify ───────────────────────────────────────────────────────
+
+  private async runIdentify(ctx: MachineContext, _input: string): Promise<AdvanceResult> {
+    const { messages: M, guards: G, transitions: T } = this.bp
     const user = await this.svc.lookupUser(ctx.userId)
+
     if (user.found && user.registered) {
-      const next: MachineContext = { ...ctx, stage: 'collect', collectSub: 'sku_select', userClass: 'registered', isRegistered: true, profileName: user.name }
-      return { reply: await this.buildSKUMenu(ctx.agentSlug, `Welcome back, *${user.name}*! 👋`), context: next, done: false }
+      const t = T['identify:USER_REGISTERED']!
+      const next: MachineContext = { ...ctx, stage: t.nextStage, collectSub: t.nextSub ?? null, userClass: 'registered', isRegistered: true, profileName: user.name }
+      return { reply: await this.skuMenu(ctx.agentSlug, M.greetRegistered(user.name ?? '')), context: next, done: false }
     }
+
     if (user.found && !user.registered) {
-      return { reply: `👋 Welcome back! You haven't finished setting up your account.\n\nWhat's your name?`, context: { ...ctx, stage: 'auth', userClass: 'return_unregistered' }, done: false }
+      const t = T['identify:USER_RETURNING_UNREGISTERED']!
+      return { reply: M.greetReturningUnregistered, context: { ...ctx, stage: t.nextStage, userClass: 'return_unregistered' }, done: false }
     }
-    return {
-      reply: `👋 Welcome! I help you create professional documents — CVs, letters, NDAs and more — delivered right here on WhatsApp.\n\nWhat's your name to get started?`,
-      context: { ...ctx, stage: 'auth', userClass: 'new_unregistered' }, done: false,
-    }
+
+    const t = T['identify:USER_NEW']!
+    return { reply: M.greetNew, context: { ...ctx, stage: t.nextStage, userClass: 'new_unregistered' }, done: false }
   }
 
-  private async stageAuth(ctx: MachineContext, input: string): Promise<AdvanceResult> {
+  // ── Stage: auth ───────────────────────────────────────────────────────────
+
+  private async runAuth(ctx: MachineContext, input: string): Promise<AdvanceResult> {
+    const { messages: M, guards: G, transitions: T } = this.bp
+
+    if (!G.isNameValid(input)) {
+      return { reply: M.nameInvalid, context: ctx, done: false }
+    }
+
     const name = input.trim()
-    if (name.length < 2) return { reply: `Please enter your name (at least 2 characters).`, context: ctx, done: false }
     await this.svc.registerUser(ctx.userId, name)
-    const next: MachineContext = { ...ctx, stage: 'collect', collectSub: 'sku_select', isRegistered: true, profileName: name }
-    return { reply: await this.buildSKUMenu(ctx.agentSlug, `✅ *Welcome, ${name}!* You're all set.`), context: next, done: false }
+    const t = T['auth:NAME_VALID']!
+    const next: MachineContext = { ...ctx, stage: t.nextStage, collectSub: t.nextSub ?? null, isRegistered: true, profileName: name }
+    return { reply: await this.skuMenu(ctx.agentSlug, M.registrationSuccess(name)), context: next, done: false }
   }
 
-  private async stageCollect(ctx: MachineContext, input: string): Promise<AdvanceResult> {
+  // ── Stage: collect ────────────────────────────────────────────────────────
+
+  private async runCollect(ctx: MachineContext, input: string): Promise<AdvanceResult> {
     switch (ctx.collectSub) {
       case 'sku_select':             return this.subSKUSelect(ctx, input)
       case 'collection':             return this.subCollection(ctx, input)
@@ -67,10 +108,11 @@ export class ConversationMachine {
   }
 
   private async subSKUSelect(ctx: MachineContext, input: string): Promise<AdvanceResult> {
+    const { messages: M, transitions: T } = this.bp
     const skus = await this.svc.listSKUs(ctx.agentSlug)
-    if (skus.length === 0) {
-      return { reply: `No documents are available right now. Please check back soon.`, context: ctx, done: false }
-    }
+
+    if (!skus.length) return { reply: M.skuNoneAvailable, context: ctx, done: false }
+
     const trimmed = input.trim()
     let chosen: LiveSKU | undefined
     const num = parseInt(trimmed, 10)
@@ -79,127 +121,203 @@ export class ConversationMachine {
       const lower = trimmed.toLowerCase()
       chosen = skus.find(s => s.name.toLowerCase().includes(lower) || lower.includes(s.name.toLowerCase().split(' ')[0]!))
     }
-    if (!chosen) return { reply: await this.buildSKUMenu(ctx.agentSlug, `Please pick a number from the list:`), context: ctx, done: false }
+
+    if (!chosen) {
+      return { reply: await this.skuMenu(ctx.agentSlug, M.skuNotChosen), context: ctx, done: false }
+    }
+
     const sku = await this.svc.loadSKU(chosen.id)
-    if (!sku) return { reply: `Could not load that template. Please try again.`, context: ctx, done: false }
-    const next: MachineContext = { ...ctx, collectSub: 'collection', liveSKU: sku, currentFieldIdx: 0, collectedFields: {} }
-    return { reply: this.askField(sku, 0), context: next, done: false }
+    if (!sku) return { reply: M.skuLoadFailed, context: ctx, done: false }
+
+    const t = T['collect:sku_select:SKU_CHOSEN']!
+    const next: MachineContext = { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, liveSKU: sku, currentFieldIdx: 0, collectedFields: {} }
+    return { reply: this.fieldPrompt(sku, 0), context: next, done: false }
   }
 
   private async subCollection(ctx: MachineContext, input: string): Promise<AdvanceResult> {
+    const { messages: M, guards: G, transitions: T } = this.bp
     const sku = ctx.liveSKU
     if (!sku) return this.subSKUSelect(ctx, input)
-    const activeFields = this.getActiveFields(sku, ctx.collectedFields)
-    const idx = ctx.currentFieldIdx
-    const field = activeFields[idx]
+
+    const activeFields = this.activeFields(sku, ctx.collectedFields)
+    const idx    = ctx.currentFieldIdx
+    const field  = activeFields[idx]
     if (!field) return this.subValidation({ ...ctx, collectSub: 'validation' }, '')
 
     const answer = input.trim()
-    if (field.required && !answer) return { reply: `This field is required.\n\n${this.askField(sku, idx)}`, context: ctx, done: false }
-    if (field.type === 'choice' && field.choices) {
-      const valid = field.choices.find(c => c.value === answer || c.label.toLowerCase() === answer.toLowerCase() || String(field.choices!.indexOf(c) + 1) === answer)
-      if (!valid) return { reply: `Please choose a valid option:\n\n${field.choices.map((c, i) => `${i + 1}. ${c.label}`).join('\n')}`, context: ctx, done: false }
-    }
-    if (field.type === 'phone' && answer && !/^[\d\s\+\-\(\)]{7,15}$/.test(answer)) return { reply: `Please enter a valid phone number.`, context: ctx, done: false }
-    if (field.type === 'email' && answer && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(answer)) return { reply: `Please enter a valid email address.`, context: ctx, done: false }
 
-    const collected = { ...ctx.collectedFields, [field.key]: answer || null }
-    const nextIdx = idx + 1
-    const nextActiveFields = this.getActiveFields(sku, collected)
-    if (nextIdx >= nextActiveFields.length) {
-      return this.subValidation({ ...ctx, collectedFields: collected, currentFieldIdx: nextIdx, collectSub: 'validation' }, '')
+    // Required check
+    if (field.required && !answer) {
+      return { reply: M.fieldRequired(this.fieldPrompt(sku, idx)), context: ctx, done: false }
     }
-    return { reply: this.askField(sku, nextIdx, collected), context: { ...ctx, collectedFields: collected, currentFieldIdx: nextIdx }, done: false }
+
+    // Type validation
+    if (field.type === 'choice' && field.choices && answer) {
+      if (!G.isValidChoice(answer, field)) {
+        return { reply: M.fieldInvalidChoice(field.choices), context: ctx, done: false }
+      }
+    }
+    if (field.type === 'phone' && answer && !G.isValidPhone(answer)) {
+      return { reply: M.fieldInvalidPhone, context: ctx, done: false }
+    }
+    if (field.type === 'email' && answer && !G.isValidEmail(answer)) {
+      return { reply: M.fieldInvalidEmail, context: ctx, done: false }
+    }
+
+    const collected    = { ...ctx.collectedFields, [field.key]: answer || null }
+    const nextIdx      = idx + 1
+    const nextFields   = this.activeFields(sku, collected)
+
+    if (nextIdx >= nextFields.length) {
+      const t = T['collect:collection:ALL_FIELDS_DONE']!
+      return this.subValidation({ ...ctx, stage: t.nextStage, collectSub: t.nextSub!, collectedFields: collected, currentFieldIdx: nextIdx }, '')
+    }
+
+    return { reply: this.fieldPrompt(sku, nextIdx, collected), context: { ...ctx, collectedFields: collected, currentFieldIdx: nextIdx }, done: false }
   }
 
   private async subValidation(ctx: MachineContext, input: string): Promise<AdvanceResult> {
+    const { messages: M, guards: G, transitions: T } = this.bp
     const sku = ctx.liveSKU!
+
     if (!input) {
-      return { reply: `${this.buildSummary(ctx.collectedFields, sku)}\n\n✅ Is everything correct?\n\nReply *Yes* to pay and generate, or *No* to edit.`, context: { ...ctx, collectSub: 'validation' }, done: false }
+      const lines = sku.fields
+        .filter(f => ctx.collectedFields[f.key] != null)
+        .sort((a, b) => a.order - b.order)
+        .map(f => `*${f.label}:* ${ctx.collectedFields[f.key]}`)
+      return { reply: M.summaryPrompt(lines, sku.name), context: { ...ctx, collectSub: 'validation' }, done: false }
     }
-    if (/^(yes|ndio|sawa|ok|confirm|y)\b/i.test(input)) return this.subTransaction({ ...ctx, collectSub: 'transaction' })
-    if (/^(no|hapana|edit|change|n)\b/i.test(input)) return { reply: `No problem! Let's start over.\n\n${this.askField(sku, 0)}`, context: { ...ctx, collectSub: 'collection', currentFieldIdx: 0, collectedFields: {} }, done: false }
-    return { reply: `Reply *Yes* to proceed or *No* to edit.`, context: ctx, done: false }
+
+    if (G.isConfirmation(input)) {
+      const t = T['collect:validation:SUMMARY_CONFIRMED']!
+      return this.subTransaction({ ...ctx, stage: t.nextStage, collectSub: t.nextSub! })
+    }
+    if (G.isRejection(input)) {
+      const t = T['collect:validation:SUMMARY_REJECTED']!
+      return { reply: this.fieldPrompt(sku, 0), context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, currentFieldIdx: 0, collectedFields: {} }, done: false }
+    }
+
+    return { reply: M.summaryAmbiguous, context: ctx, done: false }
   }
 
   private async subTransaction(ctx: MachineContext): Promise<AdvanceResult> {
+    const { messages: M, transitions: T } = this.bp
     const sku = ctx.liveSKU!
     const result = await this.svc.initiatePayment(ctx, sku)
-    if (!result) return { reply: `⚠️ Payment initiation failed. Please try again or type /reset.`, context: ctx, done: false }
+
+    if (!result) {
+      return { reply: M.paymentFailed, context: ctx, done: false }
+    }
+
+    const t = T['collect:transaction:PAYMENT_INITIATED']!
     return {
-      reply: `💳 *Payment: ${sku.currency} ${sku.price}*\n\n${result.customerMessage}\n\nEnter your M-Pesa PIN when prompted. I'll send your document automatically once confirmed. ✅`,
-      context: { ...ctx, collectSub: 'transaction_validation', checkoutRequestId: result.checkoutRequestId, txId: result.txId }, done: false,
+      reply:   M.paymentPrompt(sku.currency, sku.price, result.customerMessage),
+      context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, checkoutRequestId: result.checkoutRequestId, txId: result.txId },
+      done:    false,
     }
   }
 
   private async subTransactionValidation(ctx: MachineContext, input: string): Promise<AdvanceResult> {
-    if (!ctx.checkoutRequestId) return { reply: `Payment tracking lost. Type /reset to start over.`, context: ctx, done: false }
-    if (/^(cancel|hapana|stop)\b/i.test(input.trim())) return { reply: `❌ Payment cancelled. Send anything to try a new document.`, context: { ...ctx, collectSub: 'collection', currentFieldIdx: 0, collectedFields: {}, checkoutRequestId: undefined, txId: undefined }, done: false }
+    const { messages: M, guards: G, transitions: T } = this.bp
+
+    if (!ctx.checkoutRequestId) return { reply: M.paymentTrackingLost, context: ctx, done: false }
+
+    if (G.isCancelCommand(input)) {
+      const t = T['collect:transaction_validation:PAYMENT_CANCELLED']!
+      return { reply: M.paymentCancelled, context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, checkoutRequestId: undefined, txId: undefined }, done: false }
+    }
+
     const status = await this.svc.checkPayment(ctx.checkoutRequestId)
-    if (status === 'completed') return this.subGeneration({ ...ctx, collectSub: 'generation' })
-    if (status === 'failed') return { reply: `❌ Payment failed or was cancelled on your phone.\n\nType *retry* to try again or *cancel* to start over.`, context: { ...ctx, collectSub: 'transaction' }, done: false }
-    return { reply: `⏳ Still waiting for M-Pesa confirmation...\n\nCheck your phone and enter your PIN if prompted.\n\nType *cancel* to stop.`, context: ctx, done: false }
+
+    if (status === 'completed') {
+      const t = T['collect:transaction_validation:PAYMENT_COMPLETED']!
+      return this.subGeneration({ ...ctx, stage: t.nextStage, collectSub: t.nextSub! })
+    }
+    if (status === 'failed') {
+      const t = T['collect:transaction_validation:PAYMENT_FAILED']!
+      return { reply: M.paymentFailedRetry, context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub! }, done: false }
+    }
+
+    return { reply: M.paymentWaiting, context: ctx, done: false }
   }
 
   private async subGeneration(ctx: MachineContext): Promise<AdvanceResult> {
+    const { messages: M, transitions: T } = this.bp
     const sku = ctx.liveSKU!
     const result = await this.svc.renderDoc(ctx, sku)
-    if (!result) return { reply: `⚠️ Document generation failed. Please contact support or type /reset.`, context: ctx, done: false }
-    return { reply: `✅ *${result.title}* is ready!\n\n📄 ${result.fileUrl}\n\nWould you like to create another document?\n\nReply *Yes* or *No*.`, context: { ...ctx, collectSub: 'repetition_or_close', sessionCount: ctx.sessionCount + 1 }, done: false }
+
+    if (!result) return { reply: M.docFailed, context: ctx, done: false }
+
+    const t = T['collect:generation:DOC_READY']!
+    return {
+      reply:   M.docReady(result.title, result.fileUrl),
+      context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, sessionCount: ctx.sessionCount + 1 },
+      done:    false,
+    }
   }
 
   private async subRepetitionOrClose(ctx: MachineContext, input: string): Promise<AdvanceResult> {
-    if (/^(yes|ndio|another|more|sawa|y)\b/i.test(input.trim())) {
-      return { reply: await this.buildSKUMenu(ctx.agentSlug, `Great! What document do you need next?`), context: { ...ctx, collectSub: 'sku_select', liveSKU: undefined, currentFieldIdx: 0, collectedFields: {} }, done: false }
+    const { guards: G, transitions: T } = this.bp
+
+    if (G.wantsAnother(input)) {
+      const t = T['collect:repetition_or_close:WANTS_ANOTHER']!
+      return { reply: await this.skuMenu(ctx.agentSlug, `Great! What document do you need next?`), context: { ...ctx, stage: t.nextStage, collectSub: t.nextSub!, liveSKU: undefined, currentFieldIdx: 0, collectedFields: {} }, done: false }
     }
-    return this.stageFarewell({ ...ctx, stage: 'farewell' })
+
+    const t = T['collect:repetition_or_close:WANTS_TO_CLOSE']!
+    return this.runFarewell({ ...ctx, stage: t.nextStage })
   }
 
-  private async stageFarewell(ctx: MachineContext): Promise<AdvanceResult> {
-    return { reply: `Thank you, ${ctx.profileName ?? 'friend'}! 🎉\n\nYour documents are saved. Come back anytime — just send a message to start.`, context: { ...ctx, stage: 'closed' }, done: true }
+  // ── Stage: farewell ───────────────────────────────────────────────────────
+
+  private async runFarewell(ctx: MachineContext): Promise<AdvanceResult> {
+    return {
+      reply:   this.bp.messages.farewell(ctx.profileName ?? 'friend'),
+      context: { ...ctx, stage: 'closed' },
+      done:    true,
+    }
   }
 
-  private async stageReopen(ctx: MachineContext): Promise<AdvanceResult> {
-    return { reply: await this.buildSKUMenu(ctx.agentSlug, `Welcome back, *${ctx.profileName ?? 'there'}*! 👋`), context: { ...ctx, stage: 'collect', collectSub: 'sku_select', liveSKU: undefined, currentFieldIdx: 0, collectedFields: {} }, done: false }
+  // ── Stage: reopen (closed → back to collect) ──────────────────────────────
+
+  private async runReopen(ctx: MachineContext): Promise<AdvanceResult> {
+    const name = ctx.profileName ?? 'there'
+    return {
+      reply:   await this.skuMenu(ctx.agentSlug, `Welcome back, *${name}*! 👋`),
+      context: { ...ctx, stage: 'collect', collectSub: 'sku_select', liveSKU: undefined, currentFieldIdx: 0, collectedFields: {} },
+      done:    false,
+    }
   }
 
-  private askField(sku: LiveSKU, idx: number, collected: Record<string, unknown> = {}): string {
-    const active = this.getActiveFields(sku, collected)
-    const field = active[idx]
-    if (!field) return ''
-    let msg = `_(${idx + 1}/${active.length})_ *${field.label}*`
-    if (field.hint) msg += `\n_e.g. ${field.hint}_`
-    if (field.type === 'choice' && field.choices) msg += `\n\n${field.choices.map((c, i) => `${i + 1}. ${c.label}`).join('\n')}`
-    if (!field.required) msg += `\n_(optional — send a dash to skip)_`
-    return msg
-  }
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-  private getActiveFields(sku: LiveSKU, collected: Record<string, unknown>): LiveFieldSchema[] {
-    return sku.fields.filter(f => {
-      if (!f.condition) return true
-      const dep = collected[f.condition.field]
-      if (f.condition.operator === 'exists')     return dep !== undefined && dep !== null
-      if (f.condition.operator === 'equals')     return dep === f.condition.value
-      if (f.condition.operator === 'not_equals') return dep !== f.condition.value
-      return true
-    }).sort((a, b) => a.order - b.order)
-  }
-
-  private buildSummary(collected: Record<string, unknown>, sku: LiveSKU): string {
-    const lines = sku.fields
-      .filter(f => collected[f.key] !== undefined && collected[f.key] !== null)
-      .sort((a, b) => a.order - b.order)
-      .map(f => `*${f.label}:* ${collected[f.key]}`)
-    return lines.length ? `Here's what you gave me for your *${sku.name}*:\n\n${lines.join('\n')}` : 'Your details are collected.'
-  }
-
-  private async buildSKUMenu(agentSlug: string, heading: string): Promise<string> {
+  private async skuMenu(agentSlug: string, heading: string): Promise<string> {
     try {
       const skus = await this.svc.listSKUs(agentSlug)
       if (!skus.length) return `${heading}\n\nNo documents available right now.`
-      return `${heading}\n\nWhat would you like to create?\n\n${skus.map((s, i) => `${i + 1}. *${s.name}* — ${s.currency} ${s.price}`).join('\n')}`
+      return this.bp.messages.skuMenuHeading(heading, skus)
     } catch {
       return `${heading}\n\nSend me what document you need.`
     }
+  }
+
+  private fieldPrompt(sku: LiveSKU, idx: number, collected: Record<string, unknown> = {}): string {
+    const active = this.activeFields(sku, collected)
+    const field  = active[idx]
+    if (!field) return ''
+    return this.bp.messages.fieldPrompt(field.label, field.hint, idx, active.length, field.choices, field.required)
+  }
+
+  private activeFields(sku: LiveSKU, collected: Record<string, unknown>): LiveFieldSchema[] {
+    return sku.fields
+      .filter(f => {
+        if (!f.condition) return true
+        const dep = collected[f.condition.field]
+        if (f.condition.operator === 'exists')     return dep !== undefined && dep !== null
+        if (f.condition.operator === 'equals')     return dep === f.condition.value
+        if (f.condition.operator === 'not_equals') return dep !== f.condition.value
+        return true
+      })
+      .sort((a, b) => a.order - b.order)
   }
 }
