@@ -50,7 +50,7 @@ function StageNode({ data, selected }: StageNodeProps) {
         </CardContent>
       )}
       {data.subStages && data.subStages.length > 0 && (
-        <div className="px-(--card-spacing) pb-(--card-spacing) flex flex-wrap gap-1">
+        <div className="px-[var(--card-spacing)] pb-[var(--card-spacing)] flex flex-wrap gap-1">
           {data.subStages.map(s => (
             <span key={s} className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', style.bg)}>
               {s}
