@@ -1,93 +1,74 @@
 # AGENTS.md — web/pages/site
 
-> Read the repo-root AGENTS.md first for the full project context.
+> Read the repo-root AGENTS.md first for full project context.
 > This file covers only what is specific to this app.
 
 ## Purpose
 
-Public marketing website for the platform. Introduces Taji and Elim to prospective
-users, explains the pricing, and provides contact information. No API calls, no auth.
-Pure static SPA deployed to Cloudflare Pages.
+Public marketing website. Introduces Taji and Elim to prospective users, explains
+pricing, and links to WhatsApp. No API calls. Fully static SPA.
 
-## Type
+## Type / local port
 
-Cloudflare Pages — React + Vite + Tailwind CSS
-
-Local dev port: 5174 (run separately from dashboard to avoid port conflict)
-
-## Stack
-
-- React 18
-- Vite
-- Tailwind CSS
-- React Router (client-side routing)
+Cloudflare Pages — React 18 + Vite + Tailwind CSS — port 5174
 
 ## Pages
 
 ```
-/           → HomePage.tsx      — hero, product overview, CTA to WhatsApp
-/taji       → TajiPage.tsx      — Taji deep-dive: what it does, example flow
-/elim       → ElimPage.tsx      — Elim deep-dive: CBC tutoring, for students/parents
-/pricing    → PricingPage.tsx   — pricing tiers (update after e2e pricing confirmed)
-/contact    → ContactPage.tsx   — contact form or WhatsApp link
+/          — HomePage.tsx      hero, product overview, CTA to WhatsApp
+/taji      — TajiPage.tsx      what Taji does, example conversation flow
+/elim      — ElimPage.tsx      CBC tutoring, for students, parents, schools
+/pricing   — PricingPage.tsx   pricing (use placeholders until e2e pricing confirmed)
+/contact   — ContactPage.tsx   contact form or direct WhatsApp link
 ```
-
-## Layout
-
-File: `src/components/SiteLayout.tsx`
-Shared nav + footer for all pages.
 
 ## WhatsApp CTA link format
 
-Direct link to agent WhatsApp number:
 ```
 https://wa.me/254XXXXXXXXX?text=Hello
 ```
-Replace 254XXXXXXXXX with the live Taji WhatsApp number.
-Do not hardcode the number — use an env variable:
+
+Use env variables — never hardcode numbers:
 ```
 VITE_TAJI_WHATSAPP=254712345678
 VITE_ELIM_WHATSAPP=254798765432
 ```
 
-## Pricing page
+## Pricing page rule
 
-Keep prices as placeholders until e2e test completes and real pricing is set in the
-dashboard. Use:
-- Professional CV: "from KES —"
-- Cover Letter: "from KES —"
-- Resignation Letter: "from KES —"
-
-Update after pricing is confirmed.
+Keep all prices as *"from KES —"* until the e2e test passes and real pricing is
+confirmed in the dashboard. Update only after production prices are set.
 
 ## Environment variables
 
 ```
-VITE_TAJI_WHATSAPP   — Taji WhatsApp number (no +, no spaces)
-VITE_ELIM_WHATSAPP   — Elim WhatsApp number
+VITE_TAJI_WHATSAPP   — Taji number (no +, no spaces, e.g. 254712345678)
+VITE_ELIM_WHATSAPP   — Elim number
 ```
 
-No API gateway calls. This site is fully static.
+No VITE_API_URL needed — this site makes no API calls.
+
+Set in `.env.local` (gitignored).
+For production: Cloudflare Pages environment variables.
 
 ## Key files
 
 ```
 src/
-  App.tsx                     — router setup
-  main.tsx                    — entry point
-  components/
-    SiteLayout.tsx             — shared nav + footer
+  App.tsx
+  main.tsx
+  components/SiteLayout.tsx     — shared nav + footer
   pages/
     HomePage.tsx
     TajiPage.tsx
     ElimPage.tsx
-    PricingPage.tsx            — update prices after e2e confirms pricing
+    PricingPage.tsx             — use placeholder prices until e2e confirmed
     ContactPage.tsx
 ```
 
-## What NOT to do
+## Rules
 
-- Do not add API calls here — this is a static marketing site only
-- Do not link to dashboard pages — dashboard is a separate app on a subdomain
-- Do not hardcode WhatsApp numbers — use VITE_ env variables
-- Do not block the Pricing page deploy on pricing confirmation — use placeholders
+- No API calls — static marketing only
+- No links to dashboard pages — separate subdomain
+- No hardcoded phone numbers — VITE_ env variables only
+- No content about real pricing until post-e2e confirmation

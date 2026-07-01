@@ -1,50 +1,38 @@
 # AGENTS.md — web/pages/dashboard
 
-> Read the repo-root AGENTS.md first for the full project context.
+> Read the repo-root AGENTS.md first for full project context.
 > This file covers only what is specific to this app.
 
 ## Purpose
 
-Admin dashboard for the platform. Allows the operator to manage agents, SKUs,
-view transactions, conversations, documents, and customers. All data is fetched
-from api/gateway which proxies to the appropriate API worker.
+Admin dashboard. Manages agents, SKUs, customers, conversations, documents,
+transactions, and platform settings. All data via api/gateway (JWT-protected).
 
-## Type
+## Type / local port
 
-Cloudflare Pages — React + Vite + Tailwind CSS
-
-Local dev port: 5173
-
-## Stack
-
-- React 18
-- Vite
-- Tailwind CSS
-- shadcn/ui components (button, card, badge, input, label, separator)
-- API client: `src/api/client.ts` (fetch wrapper targeting gateway)
+Cloudflare Pages — React 18 + Vite + Tailwind CSS — port 5173
 
 ## Pages
 
 ```
-/                   → redirect to /dashboard/overview
-/login              → LoginPage.tsx (JWT auth)
-/dashboard/overview → OverviewPage.tsx   — key stats: agents, docs, revenue
-/dashboard/agents   → AgentsPage.tsx     — list, create, edit, toggle active agents
-/dashboard/templates→ TemplatesPage.tsx  — SKU Studio: upload .docx, manage SKUs
-/dashboard/conversations → ConversationsPage.tsx — all conversations + message thread viewer
-/dashboard/documents→ DocumentsPage.tsx  — all generated documents with download links
-/dashboard/transactions  → TransactionsPage.tsx — M-Pesa transactions, status, amounts
-/dashboard/settings → SettingsPage.tsx   — platform config
+/login                    — LoginPage.tsx
+/dashboard/overview       — OverviewPage.tsx       key stats
+/dashboard/agents         — AgentsPage.tsx          agent CRUD + toggle active
+/dashboard/templates      — TemplatesPage.tsx       SKU Studio: upload, extract, price, activate
+/dashboard/conversations  — ConversationsPage.tsx   all sessions + message thread view
+/dashboard/documents      — DocumentsPage.tsx       generated docs + download links
+/dashboard/transactions   — TransactionsPage.tsx    M-Pesa transactions + status
+/dashboard/settings       — SettingsPage.tsx
 ```
 
 ## API client
 
 File: `src/api/client.ts`
 
-All API calls go through this client. Base URL is `VITE_API_URL` (gateway URL).
-JWT is stored in localStorage and attached as `Authorization: Bearer <token>`.
+Base URL: `VITE_API_URL` env variable (gateway URL).
+Auth: JWT in localStorage attached as `Authorization: Bearer <token>`.
 
-API modules:
+Modules:
 ```typescript
 agentsApi.list()
 agentsApi.get(slug)
@@ -53,7 +41,7 @@ agentsApi.update(slug, data)
 agentsApi.delete(slug)
 
 templatesApi.list()
-templatesApi.upload(formData)      // POST multipart/form-data
+templatesApi.upload(formData)     // multipart/form-data
 templatesApi.update(id, data)
 templatesApi.delete(id)
 
@@ -66,67 +54,60 @@ transactionsApi.list()
 transactionsApi.listByUser(userId)
 ```
 
+## SKU Studio (TemplatesPage)
+
+1. Upload .docx → POST multipart to /api/v1/templates/upload
+2. Poll every 3 seconds while extractionStatus = "processing"
+3. When extractionStatus = "done": show extracted field_schema for review
+4. Operator sets price + toggles is_active = true
+5. SKU is immediately live to agents — no code deploy
+
 ## Auth flow
 
-1. User visits /login, enters email + password
-2. POST /api/v1/auth/login → { token }
-3. Token stored in localStorage
-4. All subsequent requests include Authorization header
-5. On 401, redirect to /login
-
-## Templates page (SKU Studio)
-
-The TemplatesPage (`src/pages/dash/TemplatesPage.tsx`) handles the full template lifecycle:
-
-1. Upload: POST multipart to /api/v1/templates/upload
-   Fields: file, name, documentType, tier, agentSlugs, price, currency
-2. Worker processes via PipelineFactory (extraction may take a few seconds)
-3. Page polls every 3 seconds while extractionStatus = "processing"
-4. Once extractionStatus = "done", fieldSchema is available
-5. Operator reviews fields, sets price, sets is_active = true
-6. SKU becomes live for the agent immediately
+1. POST /api/v1/auth/login → { token }
+2. Store in localStorage
+3. Attach as Authorization header on all requests
+4. On 401 → redirect to /login
 
 ## Environment variables
 
 ```
-VITE_API_URL      — gateway URL (e.g. http://localhost:8787 for local dev)
+VITE_API_URL    — gateway base URL
+                  local: http://localhost:8787
+                  prod:  set in Cloudflare Pages settings
 ```
 
-Set in `.env.local` (gitignored). Example:
+Set in `.env.local` (gitignored):
 ```
 VITE_API_URL=http://localhost:8787
 ```
-
-For production: set in Cloudflare Pages environment variables.
 
 ## Key files
 
 ```
 src/
-  App.tsx                         — router setup (React Router)
-  main.tsx                        — entry point
-  api/
-    client.ts                     — typed API client (all gateway calls)
+  App.tsx
+  main.tsx
+  api/client.ts                       — all API calls (never call workers directly)
   components/
-    DashLayout.tsx                — sidebar + nav wrapper
-    ui/                           — shadcn/ui components
-  hooks/
-    useAuth.tsx                   — JWT auth hook
+    DashLayout.tsx                    — sidebar + nav
+    ui/                               — shadcn/ui components
+  hooks/useAuth.tsx
   pages/
     LoginPage.tsx
     dash/
       OverviewPage.tsx
       AgentsPage.tsx
-      TemplatesPage.tsx           — SKU Studio (upload, extract, price, activate)
+      TemplatesPage.tsx               — SKU Studio
       ConversationsPage.tsx
       DocumentsPage.tsx
       TransactionsPage.tsx
       SettingsPage.tsx
 ```
 
-## What NOT to do
+## Rules
 
-- Do not call API worker endpoints directly — always go through the gateway URL
-- Do not store JWT in sessionStorage or cookies — localStorage is the pattern here
-- Do not add server-side logic — this is a purely static SPA
-- Do not hardcode the API URL — always use VITE_API_URL
+- Never call API workers directly — always go through VITE_API_URL (gateway)
+- JWT in localStorage only — not sessionStorage or cookies
+- Pure static SPA — no server-side logic
+- Never hardcode API URL — always VITE_API_URL

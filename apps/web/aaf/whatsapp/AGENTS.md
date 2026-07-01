@@ -1,154 +1,176 @@
 # AGENTS.md — aaf/whatsapp
 
-> Read the repo-root AGENTS.md first for the full project context.
+> Read the repo-root AGENTS.md first for full project context.
 > This file covers only what is specific to this worker.
 
 ## Purpose
 
-Receives incoming WhatsApp messages from Meta's webhook, validates the signature,
-normalises the phone number, and forwards the message to the gateway
-ConversationMachine. Sends the machine's reply back to the user via the Meta Graph API.
-This worker is the only one exposed to the public internet on the WhatsApp side.
+Receives incoming WhatsApp messages from Meta webhooks, validates the signature,
+normalises the phone number, maps the phone number ID to the correct agent, and
+forwards to the gateway ConversationMachine. Handles interactive message replies
+(button clicks, list selections). Delivers generated documents as WhatsApp media.
 
-## Cloudflare worker name
+## Worker name / local port
 
-`aaf-whatsapp`  — local port 8793
+`aaf-whatsapp` — port 8793
 
 ## Bindings
 
-| Binding    | Type    | What it is                               |
+| Binding    | Type    | What it is                                |
 |------------|---------|-------------------------------------------|
-| AAF_KV     | KV      | Deduplication cache (message IDs)         |
-| API_GATEWAY| Service | api-gateway (ConversationMachine)         |
+| AAF_KV     | KV      | Session: agentSlug + pendingReset flag    |
+| API_GATEWAY| Service | api-gateway ConversationMachine           |
 
 ## Routes
 
 ```
 GET  /health
-GET  /webhook    — Meta webhook verification (challenge handshake)
-POST /webhook    — incoming WhatsApp messages from Meta
+GET  /webhooks/whatsapp    — Meta webhook verification (challenge)
+POST /webhooks/whatsapp    — incoming messages + interactive replies
 ```
 
-## Webhook verification (GET)
-
-Meta sends a GET with:
-- hub.mode = "subscribe"
-- hub.challenge = random string
-- hub.verify_token = your WHATSAPP_VERIFY_TOKEN
-
-Worker checks verify_token matches env var, then echoes hub.challenge as plain text.
-Must return 200 with the challenge value for Meta to activate the webhook.
-
-## Incoming message flow (POST)
+## Incoming message flow
 
 ```
 1. Receive POST from Meta
-2. Verify X-Hub-Signature-256 header (HMAC-SHA256 of body with WHATSAPP_APP_SECRET — Meta App Secret)
-3. Parse body → extract: waMessageId, from (phone), text.body, phoneNumberId (metadata)
-4. Route to agent via PHONE_NUMBER_ID_TO_AGENT map in config/phone-agent-map.ts:
-     1038436689362682 → taji
-     729899760214979  → elim
-     122108114672001278 → test
-5. Deduplicate: check AAF_KV for waMessageId (Meta sometimes sends duplicates)
-6. Normalise phone: strip leading 0 → prefix +254 if Kenyan local format
-   Examples:
-     0712345678  → +254712345678
-     254712345678 → +254712345678
-     +254712345678 → unchanged
-8. POST to API_GATEWAY: /api/v1/machine/advance
-   Body: { phone, message, channel: "whatsapp" }
-9. Receive { reply, interactive? } from gateway
-10. If `interactive` is present: render buttons/list via `sendInteractiveMessage()`
-    Instead of plain text. Uses `buildButtonMessage`/`buildListMessage` builders.
-    Interactive types: `button` (up to 3 reply buttons) or `list` (single-select rows).
-11. If no interactive: POST plain text reply to Meta Graph API:
-    https://graph.facebook.com/v20.0/<PHONE_NUMBER_ID>/messages
-    Body: { messaging_product, to: phone, type: "text", text: { body: reply } }
-12. Incoming interactive replies (button_reply / list_reply) are handled by
-    `parseIncomingMessage()` which extracts the button/list item `id` as the
-    text forwarded to the gateway. IDs must match guard regexes in version_1.ts.
+2. Verify X-Hub-Signature-256 (HMAC-SHA256 with WHATSAPP_APP_SECRET)
+3. Parse WaWebhookPayload
+4. If status update (delivered/read) → log and return 200
+5. Parse message: extract from (phone), text, phoneNumberId, name, messageId, type
+6. Map phoneNumberId → agentSlug via PHONE_NUMBER_ID_TO_AGENT config
+7. Load session from AAF_KV → get agentSlug, pendingReset
+8. Handle commands: /help, /reset, exit, quit
+9. Handle pendingReset confirmation flow (buttons: confirm_reset / cancel_reset)
+10. POST to API_GATEWAY: /api/v1/machine/advance
+    Body: { phone, message, agentSlug, channel: "whatsapp" }
+11. Read response: { reply, document?, interactive? }
+12. If document → deliverDocument() pipeline (upload media → send document message)
+13. If interactive hint → sendInteractiveMessage() (buttons or list)
+14. If reply text → sendReply() (chunked if > 4000 chars)
+15. Return 200 to Meta
 ```
 
-## Phone number normalisation rule
+## Phone number normalisation
 
-All phone numbers stored in D1 must be in E.164 format: +254XXXXXXXXX
+All phones stored in D1 and used as session keys must be E.164: `+254XXXXXXXXX`
 
+Rule applied in `src/lib/whatsapp.ts`:
 ```typescript
 function normalisePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
-  if (digits.startsWith('0') && digits.length === 10) {
+  if (digits.startsWith('0') && digits.length === 10)
     return '+254' + digits.slice(1)
-  }
-  if (digits.startsWith('254') && digits.length === 12) {
+  if (digits.startsWith('254') && digits.length === 12)
     return '+' + digits
-  }
-  return '+' + digits  // assume already correct
+  return '+' + digits
 }
 ```
 
-## Required secrets (via Doppler)
+## Phone number ID → agent mapping
+
+File: `src/config/phone-agent-map.ts`
+
+Each WhatsApp business number maps to one agent slug:
+```typescript
+export const PHONE_NUMBER_ID_TO_AGENT: Record<string, string> = {
+  '1038436689362682':   'taji',
+  '729899760214979':    'elim',
+  '122108114672001278': 'test',
+}
+```
+
+To add a new agent's number: add its phoneNumberId → slug here.
+Fallback if not found: `DEFAULT_AGENT = 'taji'` (from `src/types/env.ts`).
+
+## Interactive messages
+
+The machine can return an `InteractionHint` with the reply.
+This worker reads it and sends a WhatsApp interactive message:
+
+- `type: 'buttons'` → up to 3 quick-reply buttons (24 char title limit)
+- `type: 'list'` → scrollable list with sections (requires `buttonLabel`)
+
+Used for: SKU selection menu, Yes/No confirmations, reset confirmation.
+
+Interactive button/list replies come back as text (the button id) in the next webhook —
+the machine and normalisation handle these the same as regular text input.
+
+## Document delivery pipeline
+
+File: `src/pipelines/index.ts` + `src/pipelines/whatsapp-media.ts`
+
+When the machine returns a `document` in the response:
+1. `fetchDocBuffer()` — fetch rendered .docx bytes from API_GATEWAY
+   → `GET https://internal/api/v1/docgen/download?key=<r2-key>`
+2. `uploadMedia()` — POST bytes to Meta Graph API media upload endpoint
+3. `sendDocumentMedia()` — send document message with mediaId to user
+4. Retries: 3 attempts with 2s, 4s, 6s backoff
+
+## Reset / exit flow
+
+Commands that trigger reset: `/reset`, `exit`, `quit`
+
+Flow:
+1. Set `session.pendingReset = true`, save to AAF_KV
+2. Send interactive buttons: "Yes, reset" / "Cancel"
+3. On next message:
+   - `confirm_reset` / yes / ndio / sawa → reset machine, send confirmation
+   - `cancel_reset` / no / cancel / back → clear pendingReset, continue
+   - Anything else → re-show confirmation buttons
+
+## Required secrets (Doppler)
 
 ```
-WHATSAPP_ACCESS_TOKEN     — Meta permanent access token (from Meta Business Manager)
-WHATSAPP_APP_SECRET       — Meta App Secret (from Meta Developer Portal → App Settings → Basic)
-WHATSAPP_VERIFY_TOKEN     — any string, must match Meta webhook config
-WHATSAPP_PHONE_NUMBER_ID  — default phone number ID (env fallback for /send)
+WHATSAPP_ACCESS_TOKEN      — Meta permanent access token
+WHATSAPP_APP_SECRET        — Meta app secret (for signature verification)
+WHATSAPP_VERIFY_TOKEN      — any string, must match Meta webhook config
+WHATSAPP_PHONE_NUMBER_ID   — from Meta Business Manager
 ```
 
 ## Meta webhook setup
 
-1. Go to Meta Business Manager → WhatsApp → Configuration
-2. Callback URL: https://<ngrok-id>.ngrok-free.app/webhook
+1. Meta Business Manager → WhatsApp → Configuration
+2. Callback URL: https://<ngrok-id>.ngrok-free.app/webhooks/whatsapp
 3. Verify Token: same as WHATSAPP_VERIFY_TOKEN
 4. Subscribe to: messages
-
-For production: use the deployed worker URL instead of ngrok.
-
-## Document delivery pipeline
-
-When the gateway advance response includes a `document` field (after generation), the
-WhatsApp worker triggers the delivery pipeline before sending the reply text.
-
-```
-message.ts handleWebhook()
-  → machineModel.advance() → gets { reply, document, interactive? }
-  → if pendingReset: handle exit confirmation flow (Yes/Cancel buttons)
-  → if exit/quit/reset cmd: set pendingReset flag, send confirm buttons
-  → if document: pipelines.deliverDocument()
-      → GET buffer from docgen via API_GATEWAY proxy (api/v1/docgen/download?key=...)
-      → POST to graph/v20.0/{{phone-id}}/media  →  media_id
-      → POST to graph/v20.0/{{phone-id}}/messages → document: { id: media_id }
-      → Retries 3x with exponential backoff on failure
-  → sendReply() with text or interactive message
-```
 
 ## Key files
 
 ```
 src/
-  index.ts            — app setup
-  routes/index.ts     — GET + POST /webhook
+  index.ts
+  routes/index.ts
+  config/
+    phone-agent-map.ts           — phoneNumberId → agentSlug map
+  types/
+    env.ts                       — Env bindings, Session type, DEFAULT_AGENT
+    interactive.ts               — full WhatsApp Cloud API v20.0 type definitions
+    interactive.md               — human-readable reference for interactive types
   controllers/
     incoming/
-      verify.ts       — webhook verification (GET)
-      message.ts      — incoming message handler (POST) — wires delivery pipeline
-      health.ts       — health check
+      message.ts                 — main webhook handler (all logic lives here)
+      verify.ts                  — GET challenge handler
+      health.ts
     outgoing/
-      reply.ts        — send reply messages via Meta API
-  pipelines/
-    index.ts          — delivery orchestrator (retry, error handling, buffer fetch)
-    whatsapp-media.ts — upload buffer to Meta + send as media message
+      reply.ts                   — sendReply, sendInteractiveMessage, sendHelp, sendReset, sendError
+      send.ts                    — low-level message send helpers
   lib/
-    whatsapp.ts       — Meta Graph API client + payload types
-    logger.ts         — Pino logger
-  types/
-    env.ts            — Env binding types
+    whatsapp.ts                  — Meta Graph API client (send text, upload media, mark read)
+    logger.ts
+  models/
+    machine.ts                   — MachineModel (calls gateway /machine/advance)
+    session.ts                   — SessionModel (AAF_KV get/set)
+  pipelines/
+    index.ts                     — deliverDocument() with retry
+    whatsapp-media.ts            — uploadMedia(), sendDocumentMedia()
+  views/
+    whatsapp.ts                  — message formatting helpers
 ```
 
-## What NOT to do
+## Rules
 
-- Do not process any business logic here — forward to gateway and return the reply
-- Do not skip signature verification — blocks spoofed webhook calls
-- Do not change phone format before forwarding — normalise then forward consistently
-- Do not send messages to users directly except as the reply to the gateway response
-  (document delivery messages flow through the delivery pipeline in this worker)
+- No business logic here — forward to gateway, return the reply
+- Never skip signature verification — it blocks spoofed requests
+- Always normalise phone to E.164 before forwarding to gateway
+- Always return 200 to Meta — even on errors (log them, don't fail the webhook)
+- Document delivery is fire-and-forget after reply is sent
