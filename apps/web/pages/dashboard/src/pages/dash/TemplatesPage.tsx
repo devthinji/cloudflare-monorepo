@@ -11,7 +11,7 @@ import {
   GripVertical, Plus, X, ArrowUp, ArrowDown, MessageSquare,
   Pencil, BookOpen, Zap,
 } from 'lucide-react'
-import { skusApi, type SKU, type SKUField, type SKUUploadResult } from '../../api/client'
+import { skusApi, agentsApi, type SKU, type SKUField, type SKUUploadResult, type Agent } from '../../api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,9 +47,11 @@ export default function TemplatesPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Review state — editing a draft SKU
-  const [editSKU,   setEditSKU]   = useState<SKU | null>(null)
-  const [fields,    setFields]    = useState<SKUField[]>([])
-  const [saving,    setSaving]    = useState(false)
+  const [editSKU,    setEditSKU]    = useState<SKU | null>(null)
+  const [fields,     setFields]     = useState<SKUField[]>([])
+  const [saving,     setSaving]     = useState(false)
+  const [agents,     setAgents]     = useState<Agent[]>([])
+  const [agentAccessMap, setAgentAccessMap] = useState<Record<string, boolean>>({})
 
   // Preview state
   const [previewSKU, setPreviewSKU] = useState<SKU | null>(null)
@@ -95,6 +97,9 @@ export default function TemplatesPage() {
       const full = await skusApi.get(res.data.id)
       setEditSKU(full)
       setFields([...full.fieldSchema].sort((a, b) => a.order - b.order))
+      const agentsList = await agentsApi.list()
+      setAgents(agentsList)
+      setAgentAccessMap(Object.fromEntries(agentsList.map(a => [a.slug, true])))
       setScreen('review')
     } catch (e) {
       setError((e as Error).message)
@@ -129,7 +134,11 @@ export default function TemplatesPage() {
     if (!editSKU) return
     setSaving(true)
     try {
-      await skusApi.update(editSKU.id, { fieldSchema: fields, isActive: publish })
+      await skusApi.update(editSKU.id, {
+        fieldSchema: fields,
+        isActive: publish,
+        agentAccess: agents.map(a => ({ agentSlug: a.slug, enabled: agentAccessMap[a.slug] ?? false })),
+      })
       await load()
       if (publish) { setScreen('library') }
       else { setError(null) }
@@ -246,8 +255,13 @@ export default function TemplatesPage() {
                 <div className="flex justify-end gap-3 pt-2 border-t border-gray-50">
                   <button onClick={() => openPreview(sku)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 font-medium"><MessageSquare size={12}/> Preview</button>
                   <button onClick={() => deleteSKU(sku)}   className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 font-medium"><Trash2 size={12}/> Delete</button>
-                  <button onClick={() => { setEditSKU(sku); setFields([...sku.fieldSchema].sort((a,b) => a.order - b.order)); setScreen('review') }}
-                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"><Pencil size={12}/> Edit</button>
+                  <button onClick={async () => {
+                    setEditSKU(sku); setFields([...sku.fieldSchema].sort((a,b) => a.order - b.order))
+                    const agentsList = await agentsApi.list()
+                    setAgents(agentsList)
+                    setAgentAccessMap(Object.fromEntries(agentsList.map(a => [a.slug, true])))
+                    setScreen('review')
+                  }} className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"><Pencil size={12}/> Edit</button>
                 </div>
               </div>
             )
@@ -398,6 +412,24 @@ export default function TemplatesPage() {
         className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 hover:border-indigo-400 text-gray-500 hover:text-indigo-600 py-3 rounded-xl text-sm transition-colors">
         <Plus size={15}/> Add Field
       </button>
+
+      {/* Agent Access */}
+      {agents.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm space-y-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Agent Access</p>
+          <p className="text-xs text-gray-400">Control which agents can offer this SKU</p>
+          <div className="flex flex-wrap gap-3 pt-1">
+            {agents.map(a => (
+              <label key={a.slug} className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={agentAccessMap[a.slug] ?? false}
+                  onChange={e => setAgentAccessMap(m => ({ ...m, [a.slug]: e.target.checked }))}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-300"/>
+                <span className="text-sm text-gray-700">{a.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-3">
         <button onClick={() => saveFields(false)} disabled={saving}

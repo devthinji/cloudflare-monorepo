@@ -209,8 +209,17 @@ export const MESSAGES = {
     `Using default filename: *${defaultName}*`,
 
   // validation
-  summaryPrompt: (lines: string[], skuName: string) =>
-    `Here's what you gave me for your *${skuName}*:\n\n${lines.join('\n')}\n\n✅ Is everything correct?\n\nTap *Yes, looks good* to proceed, or *Edit answers* to make changes.`,
+  summaryPrompt: (lines: string[], skuName: string) => {
+    const MAX_BODY = 1000
+    const truncated = lines.map(l => {
+      const sep = l.indexOf(': ')
+      if (sep === -1 || l.length <= 120) return l
+      return l.slice(0, sep + 2) + l.slice(sep + 2, sep + 2 + 100) + '…'
+    })
+    let body = `Here's what you gave me for your *${skuName}*:\n\n${truncated.join('\n')}\n\n✅ Is everything correct?\n\nTap *Yes, looks good* to proceed, or *Edit answers* to make changes.`
+    if (body.length > MAX_BODY) body = body.slice(0, MAX_BODY - 3) + '…'
+    return body
+  },
   summaryAmbiguous:
     `Tap *Yes, looks good* to proceed, or *Edit answers* to make changes.`,
 
@@ -231,8 +240,10 @@ export const MESSAGES = {
     `Payment tracking lost. Type /reset to start over.`,
 
   // confirm generation
-  confirmGeneration: (skuName: string, docFileName: string | undefined, price: number, currency: string) =>
-    `📄 *${skuName}* ready for delivery.\n\nDocument name: *${docFileName ?? `${skuName.toLowerCase().replace(/\s+/g, '-')}--${Date.now().toString(36)}`}*\n${price > 0 ? `Amount: *${currency} ${price}*` : '*Free*'}\n\nTap *Send document* to generate and deliver, or *Cancel* to go back.`,
+  confirmGeneration: (skuName: string, docFileName: string | undefined, price: number, currency: string) => {
+    const fname = (docFileName ?? `${skuName.toLowerCase().replace(/\s+/g, '-')}--${Date.now().toString(36)}`).slice(0, 80)
+    return `📄 *${skuName}* ready for delivery.\n\nDocument name: *${fname}*\n${price > 0 ? `Amount: *${currency} ${price}*` : '*Free*'}\n\nTap *Send document* to generate and deliver, or *Cancel* to go back.`
+  },
 
   // generation
   docReady: (title: string) =>

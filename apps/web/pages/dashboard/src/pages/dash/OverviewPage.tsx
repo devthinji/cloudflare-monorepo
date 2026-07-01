@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, FileText, CreditCard, Users, Loader2 } from 'lucide-react'
+import { Bot, FileText, CreditCard, Users, Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { agentsApi, customersApi, documentsApi, transactionsApi } from '../../api/client'
 
 interface Stats {
@@ -9,6 +9,12 @@ interface Stats {
   revenueKes:     number
 }
 
+interface Trends {
+  customers: number
+  docs:      number
+  revenue:   number
+}
+
 interface RecentDoc {
   userId:    string
   agentSlug: string
@@ -16,8 +22,15 @@ interface RecentDoc {
   createdAt: string
 }
 
+function trendBadge(value: number) {
+  if (value > 0) return { icon: <TrendingUp size={14} className="text-emerald-500"/>, text: `+${value}%`, color: 'text-emerald-600 bg-emerald-50' }
+  if (value < 0) return { icon: <TrendingDown size={14} className="text-red-500"/>, text: `${value}%`,  color: 'text-red-600 bg-red-50' }
+  return { icon: <Minus size={14} className="text-gray-400"/>, text: '0%', color: 'text-gray-400 bg-gray-50' }
+}
+
 export default function OverviewPage() {
   const [stats,   setStats]   = useState<Stats | null>(null)
+  const [trends,  setTrends]  = useState<Trends | null>(null)
   const [recent,  setRecent]  = useState<RecentDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
@@ -32,13 +45,44 @@ export default function OverviewPage() {
           documentsApi.listAll(),
           transactionsApi.listAll().catch(() => []),
         ])
+
+        const now = Date.now()
+        const ms30d = 30 * 24 * 60 * 60 * 1000
+        const ms60d = 60 * 24 * 60 * 60 * 1000
+
+        const recentCustomers = customers.filter(c => now - new Date(c.createdAt).getTime() < ms30d).length
+        const prevCustomers   = customers.filter(c => {
+          const t = now - new Date(c.createdAt).getTime()
+          return t >= ms30d && t < ms60d
+        }).length
+
+        const recentDocs = docs.filter(d => now - new Date(d.createdAt).getTime() < ms30d).length
+        const prevDocs   = docs.filter(d => {
+          const t = now - new Date(d.createdAt).getTime()
+          return t >= ms30d && t < ms60d
+        }).length
+
+        const recentRev = txns
+          .filter(t => t.status === 'completed' && now - new Date(t.createdAt).getTime() < ms30d)
+          .reduce((s, t) => s + t.amount, 0)
+        const prevRev = txns
+          .filter(t => t.status === 'completed') // need to check if all completed txns have createdAt
+          .filter(t => {
+            const tDiff = now - new Date(t.createdAt).getTime()
+            return tDiff >= ms30d && tDiff < ms60d
+          })
+          .reduce((s, t) => s + t.amount, 0)
+
         setStats({
           activeAgents:   agents.filter(a => a.isActive).length,
           totalCustomers: customers.length,
           totalDocs:      docs.length,
-          revenueKes:     txns
-            .filter(t => t.status === 'completed')
-            .reduce((s, t) => s + t.amount, 0),
+          revenueKes:     txns.filter(t => t.status === 'completed').reduce((s, t) => s + t.amount, 0),
+        })
+        setTrends({
+          customers: prevCustomers ? Math.round((recentCustomers - prevCustomers) / prevCustomers * 100) : recentCustomers > 0 ? 100 : 0,
+          docs:      prevDocs ? Math.round((recentDocs - prevDocs) / prevDocs * 100) : recentDocs > 0 ? 100 : 0,
+          revenue:   prevRev ? Math.round((recentRev - prevRev) / prevRev * 100) : recentRev > 0 ? 100 : 0,
         })
         setRecent(
           [...docs]
@@ -55,11 +99,11 @@ export default function OverviewPage() {
     load()
   }, [])
 
-  const statCards = stats ? [
-    { label: 'Active Agents',        value: stats.activeAgents,                    icon: <Bot size={20} /> },
-    { label: 'Registered Users',     value: stats.totalCustomers,                  icon: <Users size={20} /> },
-    { label: 'Documents Generated',  value: stats.totalDocs,                       icon: <FileText size={20} /> },
-    { label: 'Revenue Collected',    value: `KES ${stats.revenueKes.toLocaleString()}`, icon: <CreditCard size={20} /> },
+  const statCards = stats && trends ? [
+    { label: 'Active Agents',        value: stats.activeAgents,   icon: <Bot size={20} />,      trend: null },
+    { label: 'Registered Users',     value: stats.totalCustomers, icon: <Users size={20} />,     trend: trends.customers },
+    { label: 'Documents Generated',  value: stats.totalDocs,      icon: <FileText size={20} />,  trend: trends.docs },
+    { label: 'Revenue Collected',    value: `KES ${stats.revenueKes.toLocaleString()}`, icon: <CreditCard size={20} />, trend: trends.revenue },
   ] : []
 
   return (
@@ -85,6 +129,12 @@ export default function OverviewPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{s.label}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-0.5">{s.value}</p>
+                  {s.trend !== null && (
+                    <span className={`inline-flex items-center gap-1 mt-1 text-xs font-medium px-1.5 py-0.5 rounded-full ${trendBadge(s.trend).color}`}>
+                      {trendBadge(s.trend).icon}
+                      {trendBadge(s.trend).text} vs last period
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

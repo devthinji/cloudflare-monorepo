@@ -1,6 +1,6 @@
 // ─── Dashboard API Client ─────────────────────────────────────────────────────
 
-const BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+export const BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -58,6 +58,22 @@ export const conversationsApi = {
   list: (userId: string) => request<Conversation[]>('GET', `/api/v1/agent/conversations/${userId}`),
 }
 
+// ── Messages ────────────────────────────────────────────────────────────────────
+
+export interface Message {
+  id:             string
+  conversationId: string
+  role:           'user' | 'assistant'
+  content:        string
+  toolCall?:      string
+  tokensUsed?:    number
+  createdAt:      string
+}
+
+export const messagesApi = {
+  list: (conversationId: string) => request<Message[]>('GET', `/api/v1/agent/conversations/${encodeURIComponent(conversationId)}/messages`),
+}
+
 // ── Documents ──────────────────────────────────────────────────────────────────
 
 export interface Document {
@@ -111,6 +127,7 @@ export interface SKU {
   version:           number
   createdAt:         string
   updatedAt:         string
+  agentAccess?:      { agentSlug: string; enabled: boolean }[]
 }
 
 export interface SKUUploadResult {
@@ -203,6 +220,26 @@ export const transactionsApi = {
   listUser: (userId: string)  => request<Transaction[]>('GET', `/api/v1/payments/transactions/${encodeURIComponent(userId)}`),
 }
 
+
+// ── Machine Context ─────────────────────────────────────────────────────────────
+
+export interface MachineContextData {
+  userId:           string
+  agentSlug:        string
+  stage:            string
+  collectSub?:      string
+  liveSKU?:         { id: string; name: string; price: number; currency: string }
+  collectedFields?: Record<string, string>
+  docFileName?:     string
+  sessionCount?:    number
+}
+
+export const machineApi = {
+  getContext: (userId: string, agentSlug: string) =>
+    request<MachineContextData>('GET', `/api/v1/machine/context/${encodeURIComponent(userId)}/${encodeURIComponent(agentSlug)}`),
+  reset: (userId: string, agentSlug: string) =>
+    request<{ reset: boolean }>('DELETE', `/api/v1/machine/context/${encodeURIComponent(userId)}/${encodeURIComponent(agentSlug)}`),
+}
 
 // Legacy alias so old imports don't break
 export type Template = SKU

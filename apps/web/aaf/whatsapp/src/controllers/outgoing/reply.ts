@@ -22,8 +22,12 @@ export async function sendReply(phoneNumberId: string, to: string, reply: string
   }
 
   if (interactive) {
-    await sendInteractiveMessage(phoneNumberId, to, interactive, token)
-    return
+    try {
+      await sendInteractiveMessage(phoneNumberId, to, interactive, token)
+      return
+    } catch {
+      // interactive send failed — fall back to plain text
+    }
   }
 
   for (const chunk of splitMessage(reply)) {

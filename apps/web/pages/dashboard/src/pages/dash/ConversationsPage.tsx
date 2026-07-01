@@ -1,20 +1,18 @@
-// ─── Conversations & Users Page ───────────────────────────────────────────────
-// Two tabs: Users (registered callers) and Messages (conversation threads)
-
 import { useEffect, useState } from 'react'
-import { Users, MessageSquare, Loader2, X, Search, RefreshCw, Shield, ShieldOff, ChevronRight, ArrowLeft } from 'lucide-react'
-import { customersApi, conversationsApi, type Customer, type Conversation } from '../../api/client'
+import { Users, MessageSquare, Loader2, X, Search, RefreshCw, Shield, ShieldOff, ChevronRight, ArrowLeft, Cpu, RotateCcw } from 'lucide-react'
+import { customersApi, conversationsApi, messagesApi, machineApi, type Customer, type Conversation, type Message, type MachineContextData } from '../../api/client'
 
 type Tab = 'users' | 'conversations'
 
 export default function ConversationsPage() {
-  const [tab,       setTab]     = useState<Tab>('users')
-  const [customers, setCustomers]   = useState<Customer[]>([])
-  const [convos,    setConvos]  = useState<Conversation[]>([])
-  const [loading,   setLoading] = useState(true)
-  const [error,     setError]   = useState<string | null>(null)
-  const [search,    setSearch]  = useState('')
-  const [detail,    setDetail]  = useState<Customer | null>(null)
+  const [tab,          setTab]          = useState<Tab>('users')
+  const [customers,    setCustomers]    = useState<Customer[]>([])
+  const [convos,       setConvos]       = useState<Conversation[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState<string | null>(null)
+  const [search,       setSearch]       = useState('')
+  const [detail,       setDetail]       = useState<Customer | null>(null)
+  const [selectedConvo, setSelectedConvo] = useState<{ convo: Conversation; messages: Message[]; loadingMessages: boolean } | null>(null)
 
   async function load() {
     setLoading(true); setError(null)
@@ -22,7 +20,6 @@ export default function ConversationsPage() {
       if (tab === 'users') {
         setCustomers(await customersApi.list())
       } else {
-        // conversations across all customers — fetch per customer
         const allCustomers = await customersApi.list()
         const all: Conversation[] = []
         for (const u of allCustomers.slice(0, 30)) {
@@ -43,6 +40,17 @@ export default function ConversationsPage() {
       setCustomers(c => c.map(x => x.id === customer.id ? { ...x, blocked: !x.blocked } : x))
       if (detail?.id === customer.id) setDetail(d => d ? { ...d, blocked: !d.blocked } : d)
     } catch (e) { setError((e as Error).message) }
+  }
+
+  async function openMessageThread(convo: Conversation) {
+    setSelectedConvo({ convo, messages: [], loadingMessages: true })
+    try {
+      const messages = await messagesApi.list(convo.id)
+      setSelectedConvo(prev => prev ? { ...prev, messages, loadingMessages: false } : null)
+    } catch (e) {
+      setError((e as Error).message)
+      setSelectedConvo(prev => prev ? { ...prev, loadingMessages: false } : null)
+    }
   }
 
   const filteredCustomers = customers.filter(u =>
@@ -71,7 +79,7 @@ export default function ConversationsPage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
         {(['users', 'conversations'] as Tab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => { setTab(t); setSelectedConvo(null) }}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors capitalize ${tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             {t === 'users' ? <span className="flex items-center gap-1.5"><Users size={14}/> Users</span>
                            : <span className="flex items-center gap-1.5"><MessageSquare size={14}/> Conversations</span>}
@@ -147,6 +155,44 @@ export default function ConversationsPage() {
           </div>
         )
 
+      ) : selectedConvo ? (
+
+        // ── Message thread panel ─────────────────────────────────────────────
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50">
+            <button onClick={() => setSelectedConvo(null)} className="text-gray-400 hover:text-gray-600"><ArrowLeft size={18}/></button>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">Conversation</p>
+              <p className="text-xs text-gray-400 font-mono truncate">{selectedConvo.convo.userId} · {selectedConvo.convo.agentSlug}</p>
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${selectedConvo.convo.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+              {selectedConvo.convo.status}
+            </span>
+          </div>
+
+          <div className="px-4 py-3 space-y-2 max-h-[500px] overflow-y-auto" style={{ minHeight: 200 }}>
+            {selectedConvo.loadingMessages ? (
+              <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-300"/></div>
+            ) : selectedConvo.messages.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-10">No messages in this conversation</p>
+            ) : (
+              selectedConvo.messages.map(msg => (
+                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap shadow-sm ${msg.role === 'user' ? 'bg-indigo-50 text-gray-900 rounded-br-sm' : 'bg-gray-50 text-gray-900 rounded-bl-sm'}`}>
+                    <p className="text-xs font-semibold text-gray-400 mb-0.5">{msg.role === 'user' ? 'User' : 'Agent'}</p>
+                    <p>{msg.content}</p>
+                    <p className="text-[10px] text-gray-300 mt-1">{new Date(msg.createdAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="px-4 py-2 border-t border-gray-50 text-xs text-gray-400">
+            {selectedConvo.messages.length} message{selectedConvo.messages.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+
       ) : (
 
         // ── Conversations list ───────────────────────────────────────────────
@@ -168,7 +214,7 @@ export default function ConversationsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filteredConvos.map(c => (
-                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={c.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openMessageThread(c)}>
                       <td className="px-4 py-3 font-mono text-xs text-gray-600">{c.userId}</td>
                       <td className="px-4 py-3"><span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{c.agentSlug}</span></td>
                       <td className="px-4 py-3 text-xs text-gray-500">{c.channel}</td>
@@ -198,6 +244,36 @@ export default function ConversationsPage() {
 // ── Customer Detail Panel ─────────────────────────────────────────────────────
 
 function CustomerDetail({ customer, onBack, onToggleBlock }: { customer: Customer; onBack: () => void; onToggleBlock: () => void }) {
+  const [machineCtx, setMachineCtx] = useState<MachineContextData | null>(null)
+  const [loadingCtx, setLoadingCtx] = useState(false)
+  const [resetting,  setResetting]  = useState(false)
+
+  async function loadMachineContext() {
+    if (!customer.agentSlug) return
+    setLoadingCtx(true)
+    try {
+      const ctx = await machineApi.getContext(customer.id, customer.agentSlug)
+      setMachineCtx(ctx)
+    } catch {
+      setMachineCtx(null)
+    } finally {
+      setLoadingCtx(false)
+    }
+  }
+
+  async function handleReset() {
+    if (!customer.agentSlug) return
+    setResetting(true)
+    try {
+      await machineApi.reset(customer.id, customer.agentSlug)
+      setMachineCtx(null)
+    } catch (e) {
+      // ignore
+    } finally {
+      setResetting(false)
+    }
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
       <div className="flex items-center gap-3">
@@ -223,6 +299,58 @@ function CustomerDetail({ customer, onBack, onToggleBlock }: { customer: Custome
           </div>
         ))}
       </div>
+
+      {/* Machine Context */}
+      {customer.agentSlug && (
+        <div className="border border-gray-100 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cpu size={14} className="text-indigo-500"/>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Machine State</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={loadMachineContext} disabled={loadingCtx}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-40">
+                {loadingCtx ? 'Loading...' : 'Refresh'}
+              </button>
+              {machineCtx && (
+                <button onClick={handleReset} disabled={resetting}
+                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-40">
+                  <RotateCcw size={12}/> {resetting ? 'Resetting...' : 'Reset'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {machineCtx ? (
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">Stage:</span>
+                <span className="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">{machineCtx.stage}</span>
+                {machineCtx.collectSub && (
+                  <span className="font-mono bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">{machineCtx.collectSub}</span>
+                )}
+              </div>
+              {machineCtx.liveSKU && (
+                <p className="text-gray-500">SKU: {machineCtx.liveSKU.name} ({machineCtx.liveSKU.currency} {machineCtx.liveSKU.price})</p>
+              )}
+              {machineCtx.collectedFields && Object.keys(machineCtx.collectedFields).length > 0 && (
+                <div>
+                  <p className="text-gray-400 mb-1">Collected fields:</p>
+                  <pre className="bg-gray-50 rounded-lg p-2 text-[10px] text-gray-600 overflow-x-auto">{JSON.stringify(machineCtx.collectedFields, null, 1)}</pre>
+                </div>
+              )}
+              {machineCtx.sessionCount !== undefined && (
+                <p className="text-gray-400">Session count: {machineCtx.sessionCount}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 italic">
+              {customer.agentSlug ? 'Click Refresh to load machine state' : 'No agent assigned'}
+            </p>
+          )}
+        </div>
+      )}
 
       {customer.metadata && (
         <div>
