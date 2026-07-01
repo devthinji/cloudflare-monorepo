@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
-  LayoutDashboard, Bot, MessageSquare, FileText, CreditCard, Settings, Globe, Package, LogOut, GitBranch,
+  LayoutDashboard, Bot, MessageSquare, FileText, CreditCard, Settings, Globe, Package, LogOut, GitBranch, Menu, X,
 } from 'lucide-react'
 
 const NAV = [
@@ -16,6 +17,7 @@ const NAV = [
 ]
 
 export default function DashLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const { logout } = useAuth()
   const navigate = useNavigate()
 
@@ -26,7 +28,9 @@ export default function DashLayout() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <aside className="w-56 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col">
+      <aside className={`shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out ${
+        sidebarOpen ? 'w-56' : 'w-0 -ml-56'
+      }`}>
         <div className="h-16 flex items-center px-5 border-b border-sidebar-border">
           <span className="font-bold text-base tracking-tight text-sidebar-foreground">
             ASSAPPFAC Platform
@@ -74,9 +78,20 @@ export default function DashLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-muted/30">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <Outlet />
+      <main className="flex-1 overflow-y-auto bg-muted/30 flex flex-col">
+        <div className="h-16 border-b border-border px-6 flex items-center">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 hover:bg-accent rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          >
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-6xl mx-auto px-6 py-8">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>
