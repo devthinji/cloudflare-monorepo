@@ -10,15 +10,25 @@ import TransactionsPage  from './pages/dash/TransactionsPage'
 import SettingsPage      from './pages/dash/SettingsPage'
 import TemplatesPage    from './pages/dash/TemplatesPage'
 import WorkflowPage     from './pages/dash/WorkflowPage'
+import { Loader2 } from 'lucide-react'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, verifying } = useAuth()
+  if (verifying) return null
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return <>{children}</>
 }
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, verifying } = useAuth()
+
+  if (verifying) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <Routes>

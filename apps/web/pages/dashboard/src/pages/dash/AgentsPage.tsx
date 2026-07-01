@@ -6,15 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Bot, Plus, Loader2, Eye, EyeOff } from 'lucide-react'
-
-const CRED_FIELDS = [
-  { key: 'whatsappPhoneNumberId', label: 'Phone Number ID' },
-  { key: 'whatsappBusinessAccountId', label: 'Business Account ID' },
-  { key: 'whatsappAccessToken', label: 'Access Token', secret: true },
-  { key: 'whatsappAppSecret', label: 'App Secret', secret: true },
-  { key: 'whatsappVerifyToken', label: 'Verify Token', secret: true },
-]
+import { Bot, Plus, Loader2 } from 'lucide-react'
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -23,11 +15,8 @@ export default function AgentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({})
-
   const [form, setForm] = useState({
     name: '', slug: '', description: '', systemPrompt: '', modelProvider: 'openrouter', modelId: '', channel: 'whatsapp',
-    apiKeys: {} as Record<string, string>, channelConfig: {} as Record<string, string>,
   })
 
   function load() {
@@ -38,7 +27,7 @@ export default function AgentsPage() {
   useEffect(load, [])
 
   function resetForm() {
-    setForm({ name: '', slug: '', description: '', systemPrompt: '', modelProvider: 'openrouter', modelId: '', channel: 'whatsapp', apiKeys: {}, channelConfig: {} })
+    setForm({ name: '', slug: '', description: '', systemPrompt: '', modelProvider: 'openrouter', modelId: '', channel: 'whatsapp' })
   }
 
   function openCreate() {
@@ -51,8 +40,6 @@ export default function AgentsPage() {
     setForm({
       name: a.name, slug: a.slug, description: a.description ?? '', systemPrompt: a.systemPrompt,
       modelProvider: a.modelProvider, modelId: a.modelId, channel: a.channel,
-      apiKeys: a.apiKeys ?? {} as Record<string, string>,
-      channelConfig: (a.channelConfig ?? {}) as Record<string, string>,
     })
     setEditingId(a.slug)
     setCreating(false)
@@ -62,17 +49,10 @@ export default function AgentsPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      const channelConfig: Record<string, unknown> = {}
-      const apiKeys: Record<string, string> = {}
-      for (const f of CRED_FIELDS) {
-        if (f.secret) apiKeys[f.key] = form.apiKeys[f.key] ?? ''
-        else channelConfig[f.key] = form.channelConfig[f.key] ?? ''
-      }
       const data: AgentCreateInput = {
         name: form.name, slug: form.slug, description: form.description || undefined,
         systemPrompt: form.systemPrompt, modelProvider: form.modelProvider, modelId: form.modelId,
-        channel: form.channel, apiKeys: Object.keys(apiKeys).length ? apiKeys : undefined,
-        channelConfig: Object.keys(channelConfig).length ? channelConfig : undefined,
+        channel: form.channel,
       }
       if (editingId) {
         await agentsApi.update(editingId, data as AgentUpdateInput)
@@ -159,36 +139,6 @@ export default function AgentsPage() {
                   </select>
                 </div>
               </div>
-
-              <details className="border rounded-md p-3">
-                <summary className="text-sm font-medium cursor-pointer">WhatsApp Credentials</summary>
-                <div className="mt-3 space-y-3">
-                  {CRED_FIELDS.map(f => (
-                    <div key={f.key} className="space-y-1">
-                      <Label>{f.label}</Label>
-                      <div className="flex gap-1">
-                        <Input
-                          type={f.secret && !showSecrets[f.key] ? 'password' : 'text'}
-                          value={form.apiKeys[f.key] ?? form.channelConfig[f.key] ?? ''}
-                          onChange={e => {
-                            const val = e.target.value
-                            setForm(prev => {
-                              if (f.secret) return { ...prev, apiKeys: { ...prev.apiKeys, [f.key]: val } }
-                              return { ...prev, channelConfig: { ...prev.channelConfig, [f.key]: val } }
-                            })
-                          }}
-                          className="flex-1"
-                        />
-                        {f.secret && (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setShowSecrets(s => ({ ...s, [f.key]: !s[f.key] }))}>
-                            {showSecrets[f.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </details>
 
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => { setEditingId(null); setCreating(false) }}>Cancel</Button>

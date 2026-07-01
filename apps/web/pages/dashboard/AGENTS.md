@@ -22,7 +22,7 @@ Cloudflare Pages — React 18 + Vite + Tailwind CSS — port 5173
 /dashboard/conversations  — ConversationsPage.tsx   all sessions + message thread view
 /dashboard/documents      — DocumentsPage.tsx       generated docs + download links
 /dashboard/transactions   — TransactionsPage.tsx    M-Pesa transactions + status
-/dashboard/settings       — SettingsPage.tsx
+/dashboard/settings       — SettingsPage.tsx       rail layout: Overview, WhatsApp, M-Pesa, Platform panels
 ```
 
 ## API client
@@ -63,6 +63,28 @@ transactionsApi.listByUser(userId)
 2. Store in localStorage
 3. Attach as Authorization header on all requests
 4. On 401 → redirect to /login
+
+## Settings architecture
+
+`SettingsPage.tsx` uses a rail + panel layout (inspired by wacrm's settings page):
+
+```
+rail sections:
+  ├─ Overview  ─── OverviewPanel    (stats cards)
+  ├─ WhatsApp  ─── WhatsAppConfig   (per-agent credential form, save/test/reset)
+  ├─ M-Pesa    ─── MpesaPanel       (reference table)
+  └─ Platform  ─── PlatformPanel    (reference table)
+```
+
+WhatsApp credentials were moved from AgentsPage to SettingsPage. The agent form now
+only handles name, slug, description, system prompt, provider, model, and channel.
+
+Components:
+- `src/components/settings/SettingsRail.tsx`  — left rail nav, grouped into sections
+- `src/components/settings/WhatsAppConfig.tsx` — per-agent WhatsApp credential form
+- `src/components/settings/OverviewPanel.tsx` — stats cards landing
+- `src/components/settings/MpesaPanel.tsx`    — M-Pesa env reference
+- `src/components/settings/PlatformPanel.tsx` — platform env reference
 
 ## Environment variables
 

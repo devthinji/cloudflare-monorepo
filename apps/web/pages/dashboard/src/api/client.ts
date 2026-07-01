@@ -13,6 +13,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     },
     body: body ? JSON.stringify(body) : undefined,
   })
+  if (res.status === 401) {
+    localStorage.removeItem('token')
+    window.location.href = '/login'
+    throw new Error('Session expired')
+  }
   const json = await res.json() as { success: boolean; data?: T; error?: string }
   if (!json.success) throw new Error(json.error ?? 'Unknown error')
   return json.data as T
