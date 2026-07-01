@@ -3,6 +3,8 @@
 // POST /api/v1/machine/advance  — process one user message
 // GET  /api/v1/machine/context/:userId/:agentSlug — inspect state (dashboard)
 // DELETE /api/v1/machine/context/:userId/:agentSlug — reset
+// GET  /api/v1/machine/blueprint/:agentSlug/:version — load blueprint
+// POST /api/v1/machine/blueprint/:agentSlug/:version — save blueprint
 
 import { Hono }              from 'hono'
 import type { GatewayEnv }   from '@repo/types'
@@ -10,6 +12,8 @@ import { ok, err }           from '@repo/utils'
 import { ConversationMachine, type MachineServices } from '../machine/machine'
 import { initialContext }    from '../machine/states'
 import type { MachineContext, LiveSKU } from '../machine/states'
+import type { Blueprint } from '../machine/steps/business-logic/version_1'
+import { BlueprintV1 } from '../machine/steps/business-logic/version_1'
 
 export const machineRoutes = new Hono<{ Bindings: GatewayEnv }>()
 
@@ -149,8 +153,20 @@ machineRoutes.post('/advance', async (c) => {
     },
   }
 
+  // ── Load blueprint (default to BlueprintV1 if not found) ────────────────────
+  let blueprint: Blueprint = BlueprintV1
+  try {
+    const bpKey = `blueprint:${body.agentSlug}:1`
+    const stored = await c.env.SESSIONS_KV.get(bpKey)
+    if (stored) {
+      blueprint = JSON.parse(stored) as Blueprint
+    }
+  } catch {
+    // Fall back to default blueprint
+  }
+
   // ── Run machine ────────────────────────────────────────────────────────────
-  const machine = new ConversationMachine(svc)
+  const machine = new ConversationMachine(svc, blueprint)
   const result  = await machine.advance(ctx, body.message)
 
   // Persist updated context (30 days)
@@ -182,4 +198,39 @@ machineRoutes.delete('/context/:userId/:agentSlug', async (c) => {
   const ctxKey = `machine:${c.req.param('agentSlug')}:${c.req.param('userId')}`
   await c.env.SESSIONS_KV.delete(ctxKey)
   return c.json(ok({ reset: true }))
+})
+
+// ─── GET /blueprint/:agentSlug/:version ─────────────────────────────────────
+
+machineRoutes.get('/blueprint/:agentSlug/:version', async (c) => {
+  const agentSlug = c.req.param('agentSlug')
+  const version = parseInt(c.req.param('version'), 10)
+  
+  try {
+    const bpKey = `blueprint:${agentSlug}:${version}`
+    const stored = await c.env.SESSIONS_KV.get(bpKey)
+    if (stored) return c.json(ok(JSON.parse(stored)))
+    return c.json(ok(null)) // Fall back to default
+  } catch {
+    return c.json(ok(null))
+  }
+})
+
+// ─── POST /blueprint/:agentSlug/:version ────────────────────────────────────
+
+machineRoutes.post('/blueprint/:agentSlug/:version', async (c) => {
+  const agentSlug = c.req.param('agentSlug')
+  const version = parseInt(c.req.param('version'), 10)
+  
+  try {
+    const body = await c.req.json() as unknown
+    if (!body || typeof body !== 'object') return c.json(err('Invalid blueprint'), 400)
+    
+    const bpKey = `blueprint:${agentSlug}:${version}`
+    await c.env.SESSIONS_KV.put(bpKey, JSON.stringify(body), { expirationTtl: 86400 * 365 })
+    
+    return c.json(ok({ saved: true, agentSlug, version }))
+  } catch (e) {
+    return c.json(err(`Failed to save blueprint: ${e instanceof Error ? e.message : 'unknown error'}`), 500)
+  }
 })

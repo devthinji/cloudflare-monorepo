@@ -1,3 +1,14 @@
+CREATE TABLE `blueprints` (
+	`id` text PRIMARY KEY NOT NULL,
+	`agent_slug` text NOT NULL,
+	`version` integer NOT NULL,
+	`name` text NOT NULL,
+	`content` text NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `agents` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,

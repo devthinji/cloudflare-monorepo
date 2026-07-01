@@ -1,5 +1,18 @@
 import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
 
+// ─── Blueprints: conversation flow definitions ────────────────────────────────
+
+export const blueprints = sqliteTable('blueprints', {
+  id:        text('id').primaryKey(),
+  agentSlug: text('agent_slug').notNull(),
+  version:   integer('version').notNull(),
+  name:      text('name').notNull(),
+  content:   text('content').notNull(), // JSON: VisualBlueprint
+  isActive:  integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
 // ─── Agent: agents, conversations, messages, customers ───────────────────────
 
 export const agents = sqliteTable('agents', {

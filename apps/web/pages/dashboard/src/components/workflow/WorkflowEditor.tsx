@@ -22,7 +22,105 @@ import WorkflowSidebar from './WorkflowSidebar'
 import WorkflowToolbar from './WorkflowToolbar'
 import NodeConfigPanel from './panels/NodeConfigPanel'
 import { useBlueprintExport, useBlueprintImport, nodesFromBlueprint, edgesFromBlueprint } from './hooks/useBlueprint'
-import type { VisualBlueprint } from './types'
+import { useBlueprintLoad, useBlueprintSave } from './hooks/useMachineBlueprint'
+import type { VisualBlueprint, BlueprintEvent } from './types'
+
+const DEFAULT_WORKFLOW_NODES: Node<StageNodeData>[] = [
+  {
+    id: 'identify',
+    type: 'stage',
+    position: { x: 80, y: 80 },
+    data: {
+      stage: 'identify',
+      label: 'Identify',
+      description: 'Detect whether the customer is new, returning, or already registered.',
+    },
+  },
+  {
+    id: 'auth',
+    type: 'stage',
+    position: { x: 320, y: 80 },
+    data: {
+      stage: 'auth',
+      label: 'Auth',
+      description: 'Ask for the customer name and validate it before continuing.',
+    },
+  },
+  {
+    id: 'collect',
+    type: 'stage',
+    position: { x: 560, y: 80 },
+    data: {
+      stage: 'collect',
+      label: 'Collect',
+      description: 'Collect the document fields, handle payment, and confirm generation.',
+      subStages: ['sku_select', 'collection', 'naming', 'validation', 'transaction', 'transaction_validation', 'confirm_generation', 'generation', 'repetition_or_close'],
+    },
+  },
+  {
+    id: 'farewell',
+    type: 'stage',
+    position: { x: 800, y: 80 },
+    data: {
+      stage: 'farewell',
+      label: 'Farewell',
+      description: 'Wrap up the conversation and invite the user to continue later.',
+    },
+  },
+  {
+    id: 'closed',
+    type: 'stage',
+    position: { x: 1040, y: 80 },
+    data: {
+      stage: 'closed',
+      label: 'Closed',
+      description: 'The session is closed until the customer starts again.',
+    },
+  },
+]
+
+const DEFAULT_WORKFLOW_EDGES: Edge[] = [
+  {
+    id: 'edge_identify_auth',
+    source: 'identify',
+    target: 'auth',
+    data: { event: 'CUSTOMER_NEW' as BlueprintEvent, guard: '' },
+    animated: true,
+    style: { stroke: '#94a3b8', strokeWidth: 2 },
+  },
+  {
+    id: 'edge_identify_collect',
+    source: 'identify',
+    target: 'collect',
+    data: { event: 'CUSTOMER_REGISTERED' as BlueprintEvent, guard: '' },
+    animated: true,
+    style: { stroke: '#94a3b8', strokeWidth: 2 },
+  },
+  {
+    id: 'edge_auth_collect',
+    source: 'auth',
+    target: 'collect',
+    data: { event: 'NAME_VALID' as BlueprintEvent, guard: '' },
+    animated: true,
+    style: { stroke: '#94a3b8', strokeWidth: 2 },
+  },
+  {
+    id: 'edge_collect_farewell',
+    source: 'collect',
+    target: 'farewell',
+    data: { event: 'DOC_READY' as BlueprintEvent, guard: '' },
+    animated: true,
+    style: { stroke: '#94a3b8', strokeWidth: 2 },
+  },
+  {
+    id: 'edge_farewell_closed',
+    source: 'farewell',
+    target: 'closed',
+    data: { event: 'WANTS_TO_CLOSE' as BlueprintEvent, guard: '' },
+    animated: true,
+    style: { stroke: '#94a3b8', strokeWidth: 2 },
+  },
+]
 
 const nodeTypes: NodeTypes = {
   stage: StageNode,
@@ -48,16 +146,23 @@ export default function WorkflowEditor({
   blueprintVersion = 1,
   agentSlug = 'taji',
 }: WorkflowEditorProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes ?? [])
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges ?? [])
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes ?? DEFAULT_WORKFLOW_NODES)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges ?? DEFAULT_WORKFLOW_EDGES)
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
 
   const [selectedNode, setSelectedNode] = useState<Node<StageNodeData> | null>(null)
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const [undoStack, setUndoStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([])
   const [redoStack, setRedoStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([])
+
+  const blueprintLoad = useBlueprintLoad()
+  const blueprintSave = useBlueprintSave()
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const pushSnapshot = useCallback(() => {
     setUndoStack(prev => {
@@ -95,6 +200,60 @@ export default function WorkflowEditor({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [handleUndo, handleRedo])
+
+  // Load blueprint on mount
+  useEffect(() => {
+    const load = async () => {
+      const blueprint = await blueprintLoad(agentSlug, blueprintVersion)
+      if (blueprint) {
+        setNodes(nodesFromBlueprint(blueprint))
+        setEdges(edgesFromBlueprint(blueprint))
+      }
+    }
+    load()
+  }, [agentSlug, blueprintVersion, blueprintLoad, setNodes, setEdges])
+
+  // Auto-save blueprint when nodes/edges change
+  useEffect(() => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      const blueprint: VisualBlueprint = {
+        id: blueprintId,
+        version: blueprintVersion,
+        agentSlug,
+        nodes: nodes.map(n => {
+          const data = n.data as StageNodeData
+          return {
+            id: n.id,
+            stage: data.stage,
+            label: data.label,
+            description: data.description,
+            subStages: data.subStages,
+            position: n.position,
+          }
+        }),
+        edges: edges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          event: ((e.data as any)?.event || '') as BlueprintEvent,
+          guard: (e.data as any)?.guard || '',
+        })),
+      }
+
+      setSaveStatus('saving')
+      const success = await blueprintSave(agentSlug, blueprintVersion, blueprint)
+      if (success) {
+        setSaveStatus('saved')
+        setSaveError(null)
+        setTimeout(() => setSaveStatus('idle'), 2000)
+      } else {
+        setSaveStatus('error')
+        setSaveError('Failed to save blueprint')
+      }
+    }, 1000) // Debounce for 1 second
+  }, [nodes, edges, agentSlug, blueprintVersion, blueprintId, blueprintSave])
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -204,11 +363,15 @@ export default function WorkflowEditor({
         onImport={handleImport}
         onUndo={handleUndo}
         onRedo={handleRedo}
+        onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+        isSidebarOpen={isSidebarOpen}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
+        saveStatus={saveStatus}
+        saveError={saveError}
       />
       <div className="flex flex-1 overflow-hidden">
-        <WorkflowSidebar />
+        {isSidebarOpen && <WorkflowSidebar />}
         <div ref={reactFlowWrapper} className="flex-1">
           <ReactFlowProvider>
             <ReactFlow
