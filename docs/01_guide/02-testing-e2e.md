@@ -119,3 +119,8 @@ cd apps/api/payments && npx wrangler tail --local
 ## Known gaps (do not block test)
 
 - No retry flow if M-Pesa STK times out
+- TransactionsPage uses mock data — no listAll endpoint yet (see gap analysis issue 3)
+- OverviewPage stats are hardcoded — no stats endpoint yet (see gap analysis issue 4)
+- SettingsPage save does nothing — no secrets CRUD endpoint (see gap analysis issue 5)
+
+Full gap analysis: `docs/04_design/06-dashboard-db-gap-analysis.md`

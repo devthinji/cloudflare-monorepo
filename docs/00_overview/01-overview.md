@@ -23,7 +23,8 @@ Branch `feat/e2e` is ready for end-to-end WhatsApp testing.
 - Blueprint-driven flow (version_1.ts owns all transitions, guards, messages)
 - SKU system: 3 active Taji SKUs seeded at test prices (KES 1–3)
 - M-Pesa Daraja STK push + callback
-- Dashboard wired to real API (agents, SKUs, transactions, documents, customers)
+- Dashboard wired to real API (agents, SKUs, customers, conversations)
+- Dashboard pages for transactions, overview stats, and settings use placeholder/mock data (see `04_design/06-dashboard-db-gap-analysis.md`)
 - D1 migrations, seed script, Doppler secrets management
 - Pre-flight TypeScript checks pass clean across all workers
 

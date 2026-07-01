@@ -89,6 +89,7 @@ Every turn in every conversation.
 ### skus
 
 Every sellable document product. Drives the ConversationMachine.
+Agent access is managed via the `sku_agent_access` junction table — `agent_slug` is NOT a direct column.
 
 | Column             | Type    | Notes                                     |
 |--------------------|---------|-------------------------------------------|
@@ -96,18 +97,30 @@ Every sellable document product. Drives the ConversationMachine.
 | name               | TEXT    | "Professional CV"                         |
 | slug               | TEXT UQ | "professional-cv"                         |
 | description        | TEXT    |                                           |
-| agent_slug         | TEXT    | Which agent sells this                    |
 | template_type      | TEXT    | "docx"                                    |
 | file_key           | TEXT    | R2 object key for the .docx template      |
 | preview_key        | TEXT    | R2 key for preview image                  |
 | markdown_preview   | TEXT    | Readable text version                     |
 | price              | REAL    | KES. Test: 1–3. Production: via dashboard |
 | currency           | TEXT    | "KES"                                     |
-| field_schema       | TEXT    | JSON: FieldSchema[]                       |
-| conversation_steps | TEXT    | JSON: ConversationStep[]                  |
-| is_active          | INTEGER | 1 = visible to users                      |
+| field_schema       | TEXT    | JSON: FieldSchema[] — stored as string, parsed on read |
+| conversation_steps | TEXT    | JSON: ConversationStep[] — stored as string, parsed on read |
+| is_active          | INTEGER | 0/1 (boolean mode in Drizzle)             |
 | requires_review    | INTEGER | 1 = admin must approve after AI extraction|
-| version            | INTEGER |                                           |
+| version            | INTEGER | incremented on field_schema update        |
+
+### sku_agent_access
+
+Junction table linking SKUs to agents. One row per (sku, agent) pair.
+
+| Column     | Type    | Notes                     |
+|------------|---------|---------------------------|
+| id         | TEXT PK |                           |
+| sku_id     | TEXT    | FK → skus.id              |
+| agent_slug | TEXT    | "taji" or "elim"          |
+| enabled    | INTEGER | 1 = this agent can sell it|
+| created_at | TEXT    |                           |
+| updated_at | TEXT    |                           |
 
 ### templates (legacy)
 
@@ -125,7 +138,7 @@ Every document ever generated.
 | template_id   | TEXT    | SKU id used                    |
 | type          | TEXT    | "cv", "cover_letter", etc.     |
 | title         | TEXT    |                                |
-| file_url      | TEXT    | R2 public URL of generated file|
+| file_url      | TEXT    | R2 object key (not a public URL) — use download endpoint |
 | field_values  | TEXT    | JSON: collected user data      |
 | transaction_id| TEXT    | Linked payment                 |
 

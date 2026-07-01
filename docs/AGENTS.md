@@ -27,4 +27,5 @@ This folder is the canonical source for project context. Read `docs/README.md` f
 - ConversationMachine flow: `02_architecture/02-conversation-machine.md`
 - M-Pesa integration: `04_design/04-mpesa.md`
 - Current build phase: `04_design/01-staging-plan.md`
-- AI provider migration (active): `04_design/03-tasklist-101.md`
+- AI provider migration (complete): `04_design/03-tasklist-101.md`
+- Dashboard ↔ DB gap analysis: `04_design/06-dashboard-db-gap-analysis.md`

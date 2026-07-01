@@ -1,5 +1,8 @@
 # Tasklist 101 — OpenRouter + Workers AI Provider Migration
 
+
+> *Status: COMPLETE as of 2026-06-30* — All phases implemented. `@repo/llm-service` ships OpenRouter primary → Workers AI fallback. Groq fully removed.
+
 **Audit:** `docs/04_design/audit-101.md`
 **Target:** OpenRouter (primary) → Cloudflare Workers AI (fallback). Remove Groq.
 **Sequence:** Tasks must run in order within each phase. Phases 1→2→3 are sequential.

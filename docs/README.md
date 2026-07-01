@@ -55,6 +55,7 @@ What needs e2e confirmation before production:
 | [02-conversation-machine.md](02_architecture/02-conversation-machine.md) | 4-stage state machine, SKU pipeline, data flow |
 | [03-channels.md](02_architecture/03-channels.md) | WhatsApp-first AAF design |
 | [04-database.md](02_architecture/04-database.md) | D1 tables, Drizzle schema, migrations |
+| [05-flow_interactivity.md](02_architecture/05-flow_interactivity.md) | WhatsApp interactive messages — buttons, lists, component mapping |
 
 ### 03_products/
 | File | What it covers |
