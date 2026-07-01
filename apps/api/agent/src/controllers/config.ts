@@ -81,7 +81,7 @@ export class AgentIntelligence {
   ): Promise<RouteAnalysis> {
     try {
       const { content } = await callWithFallback({
-        model: agent?.modelId ?? 'openai/gpt-4o-mini',
+        model: agent?.modelId ?? 'meta-llama/llama-3.1-8b-instruct:free',
         messages: [
           { role: 'system', content: ROUTE_REASONING_PROMPT },
           { role: 'user',   content: `${method} ${path}` },

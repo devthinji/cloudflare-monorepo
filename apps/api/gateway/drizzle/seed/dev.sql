@@ -9,7 +9,7 @@ INSERT OR REPLACE INTO agents (id, name, slug, description, system_prompt, tools
 You help users create CVs, application letters, and resignation letters.
 Be warm, professional, and encouraging.
 Always collect all required fields before generating a document.',
-  '["listSKUs","collectField","initiatePayment","generateDocument"]', 'openrouter', 'openai/gpt-4o-mini',
+  '["listSKUs","collectField","initiatePayment","generateDocument"]', 'openrouter', 'meta-llama/llama-3.1-8b-instruct:free',
   'whatsapp', '{"whatsappPhoneNumberId":"1038436689362682"}', 1, '2026-06-30T10:58:31.744Z', '2026-06-30T10:58:31.744Z'
 );
 
@@ -18,7 +18,7 @@ INSERT OR REPLACE INTO agents (id, name, slug, description, system_prompt, tools
   'You are Elim, a friendly CBC education assistant for Kenyan students.
 You help with exam preparation, concept explanations, and practice questions.
 Always encourage students and explain things clearly in simple language.',
-  '["askQuestion","explainConcept","givePractice"]', 'openrouter', 'openai/gpt-4o-mini',
+  '["askQuestion","explainConcept","givePractice"]', 'openrouter', 'meta-llama/llama-3.1-8b-instruct:free',
   'whatsapp', '{"whatsappPhoneNumberId":"729899760214979"}', 1, '2026-06-30T10:58:31.744Z', '2026-06-30T10:58:31.744Z'
 );
 
@@ -27,7 +27,7 @@ INSERT OR REPLACE INTO agents (id, name, slug, description, system_prompt, tools
   'You are a test agent for WhatsApp flow testing.
 Respond concisely and confirm that messages are being routed correctly.
 Identify yourself as the test agent when asked.',
-  '["listSKUs","collectField"]', 'openrouter', 'openai/gpt-4o-mini',
+  '["listSKUs","collectField"]', 'openrouter', 'meta-llama/llama-3.1-8b-instruct:free',
   'whatsapp', '{"whatsappPhoneNumberId":"122108114672001278"}', 1, '2026-06-30T10:58:31.744Z', '2026-06-30T10:58:31.744Z'
 );
 

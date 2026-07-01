@@ -261,7 +261,7 @@ export class AgentWorker extends Agent<AgentWorkerEnv, AgentWorkerState> {
 
     try {
       const response = await callWithFallback({
-        model: model ?? 'openai/gpt-4o-mini',
+        model: model ?? 'meta-llama/llama-3.1-8b-instruct:free',
         messages: [
           { role: 'system', content: prompt },
           ...hist,

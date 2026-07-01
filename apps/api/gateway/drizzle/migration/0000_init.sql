@@ -6,7 +6,7 @@ CREATE TABLE `agents` (
 	`system_prompt` text NOT NULL,
 	`tools_enabled` text DEFAULT '[]' NOT NULL,
 	`model_provider` text DEFAULT 'openrouter' NOT NULL,
-	`model_id` text DEFAULT 'openai/gpt-4o-mini' NOT NULL,
+	`model_id` text DEFAULT 'meta-llama/llama-3.1-8b-instruct:free' NOT NULL,
 	`channel` text DEFAULT 'whatsapp' NOT NULL,
 	`channel_config` text,
 	`api_keys` text,

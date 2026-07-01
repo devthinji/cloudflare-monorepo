@@ -5,10 +5,11 @@ import { agentsApi, type Agent, type AgentCreateInput } from '../../api/client'
 // ── Model options ─────────────────────────────────────────────────────────────
 
 const MODEL_OPTIONS = [
-  { provider: 'openrouter', id: 'openai/gpt-4o-mini' },
-  { provider: 'openrouter', id: 'openai/gpt-4o' },
-  { provider: 'openrouter', id: 'anthropic/claude-3.5-haiku' },
-  { provider: 'workers-ai', id: '@cf/meta/llama-3.1-8b-instruct' },
+  { provider: 'openrouter', id: 'meta-llama/llama-3.1-8b-instruct:free', label: 'Llama 3.1 8B (Free)' },
+  { provider: 'openrouter', id: 'openai/gpt-4o-mini',                  label: 'GPT-4o Mini' },
+  { provider: 'openrouter', id: 'openai/gpt-4o',                       label: 'GPT-4o' },
+  { provider: 'openrouter', id: 'anthropic/claude-3.5-haiku',           label: 'Claude 3.5 Haiku' },
+  { provider: 'workers-ai', id: '@cf/meta/llama-3.1-8b-instruct',      label: 'Workers AI Llama 3.1 (Free)' },
 ]
 
 const CHANNELS = ['whatsapp', 'telegram', 'sms', 'ussd', 'dashboard']
@@ -19,7 +20,7 @@ const EMPTY_FORM: AgentCreateInput = {
   description:   '',
   systemPrompt:  '',
   modelProvider: 'openrouter',
-  modelId:       'openai/gpt-4o-mini',
+  modelId:       'meta-llama/llama-3.1-8b-instruct:free',
   channel:       'whatsapp',
   isActive:      true,
 }
@@ -334,7 +335,7 @@ export default function AgentsPage() {
                 >
                   {MODEL_OPTIONS.map(m => (
                     <option key={`${m.provider}|${m.id}`} value={`${m.provider}|${m.id}`}>
-                      {m.provider} — {m.id}
+                      {m.label ?? `${m.provider} — ${m.id}`}
                     </option>
                   ))}
                 </select>

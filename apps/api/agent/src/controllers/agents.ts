@@ -78,7 +78,7 @@ export async function createAgent(c: Context<{ Bindings: AgentWorkerEnv }>) {
     id, name: body.name, slug: body.slug, description: body.description,
     systemPrompt: body.systemPrompt,
     modelProvider: body.modelProvider ?? 'openrouter',
-    modelId: body.modelId ?? 'openai/gpt-4o-mini',
+    modelId: body.modelId ?? 'meta-llama/llama-3.1-8b-instruct:free',
     channel: body.channel ?? 'whatsapp',
     apiKeys: encrypted.apiKeys ?? null,
     channelConfig: encrypted.channelConfig ?? null,

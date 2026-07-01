@@ -29,7 +29,7 @@ type AiEnv = Pick<AgentWorkerEnv | DocgenWorkerEnv, 'AI' | 'OPENROUTER_API_KEY'>
 // ─── Defaults ───────────────────────────────────────────────────────────────
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1/chat/completions'
-const OPENROUTER_DEFAULT_MODEL = 'openai/gpt-4o-mini'
+const OPENROUTER_DEFAULT_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
 
 const WORKERS_AI_TEXT_MODEL = '@cf/meta/llama-3.1-8b-instruct'
 
