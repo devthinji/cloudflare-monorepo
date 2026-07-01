@@ -39,10 +39,11 @@ export type AgentCreateInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>
 export type AgentUpdateInput = Partial<AgentCreateInput>
 
 export const agentsApi = {
-  list:   ()                                     => request<Agent[]>('GET',  '/api/v1/agent/agents'),
-  get:    (slug: string)                         => request<Agent>  ('GET',  `/api/v1/agent/agents/${slug}`),
-  create: (data: AgentCreateInput)               => request<Agent>  ('POST', '/api/v1/agent/agents', data),
-  update: (slug: string, data: AgentUpdateInput) => request<Agent>  ('PUT',  `/api/v1/agent/agents/${slug}`, data),
+  list:   ()                                     => request<Agent[]>('GET',   '/api/v1/agent/agents'),
+  get:    (slug: string)                         => request<Agent>  ('GET',   `/api/v1/agent/agents/${slug}`),
+  create: (data: AgentCreateInput)               => request<Agent>  ('POST',  '/api/v1/agent/agents', data),
+  update: (slug: string, data: AgentUpdateInput) => request<Agent>  ('PUT',   `/api/v1/agent/agents/${slug}`, data),
+  delete: (slug: string)                         => request<{deleted: boolean}>('DELETE', `/api/v1/agent/agents/${slug}`),
 }
 
 // ── Conversations ──────────────────────────────────────────────────────────────

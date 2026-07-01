@@ -1,0 +1,41 @@
+{
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Documents"
+    }
+  ],
+  "buttons": [
+    {
+      "text": "Logout",
+      "tag": "button"
+    },
+    {
+      "text": "Refresh",
+      "tag": "button"
+    },
+    {
+      "text": "",
+      "tag": "button"
+    }
+  ],
+  "errors": [],
+  "url": "http://localhost:5173/documents",
+  "text": [
+    "ASSAPPFAC Platform",
+    "Overview",
+    "Agents",
+    "Conversations",
+    "Documents",
+    "Transactions",
+    "Templates",
+    "Settings",
+    "Logout",
+    "View Site",
+    "Documents",
+    "All generated documents across all users",
+    "Refresh",
+    "Invalid or expired token",
+    "No documents generated yet"
+  ]
+}

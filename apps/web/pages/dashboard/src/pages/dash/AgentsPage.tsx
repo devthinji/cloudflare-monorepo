@@ -1,412 +1,232 @@
-import { useEffect, useState } from 'react'
-import { Bot, Plus, Pencil, Trash2, ToggleLeft, ToggleRight, X, Save, Loader2 } from 'lucide-react'
-import { agentsApi, type Agent, type AgentCreateInput } from '../../api/client'
+import { useEffect, useState, type FormEvent } from 'react'
+import { agentsApi } from '@/api/client'
+import type { Agent, AgentCreateInput, AgentUpdateInput } from '@/api/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Bot, Plus, Loader2, Eye, EyeOff } from 'lucide-react'
 
-// ── Model options ─────────────────────────────────────────────────────────────
-
-const MODEL_OPTIONS = [
-  { provider: 'openrouter', id: 'meta-llama/llama-3.1-8b-instruct:free', label: 'Llama 3.1 8B (Free)' },
-  { provider: 'openrouter', id: 'openai/gpt-4o-mini',                  label: 'GPT-4o Mini' },
-  { provider: 'openrouter', id: 'openai/gpt-4o',                       label: 'GPT-4o' },
-  { provider: 'openrouter', id: 'anthropic/claude-3.5-haiku',           label: 'Claude 3.5 Haiku' },
-  { provider: 'workers-ai', id: '@cf/meta/llama-3.1-8b-instruct',      label: 'Workers AI Llama 3.1 (Free)' },
+const CRED_FIELDS = [
+  { key: 'whatsappPhoneNumberId', label: 'Phone Number ID' },
+  { key: 'whatsappBusinessAccountId', label: 'Business Account ID' },
+  { key: 'whatsappAccessToken', label: 'Access Token', secret: true },
+  { key: 'whatsappAppSecret', label: 'App Secret', secret: true },
+  { key: 'whatsappVerifyToken', label: 'Verify Token', secret: true },
 ]
 
-const CHANNELS = ['whatsapp', 'telegram', 'sms', 'ussd', 'dashboard']
-
-const EMPTY_FORM: AgentCreateInput = {
-  name:          '',
-  slug:          '',
-  description:   '',
-  systemPrompt:  '',
-  modelProvider: 'openrouter',
-  modelId:       'meta-llama/llama-3.1-8b-instruct:free',
-  channel:       'whatsapp',
-  isActive:      true,
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export default function AgentsPage() {
-  const [agents,  setAgents]  = useState<Agent[]>([])
+  const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({})
 
-  const [panel,   setPanel]   = useState<'none' | 'create' | 'edit'>('none')
-  const [editing, setEditing] = useState<Agent | null>(null)
-  const [form,    setForm]    = useState<AgentCreateInput>(EMPTY_FORM)
-  const [saving,  setSaving]  = useState(false)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [form, setForm] = useState({
+    name: '', slug: '', description: '', systemPrompt: '', modelProvider: 'openrouter', modelId: '', channel: 'whatsapp',
+    apiKeys: {} as Record<string, string>, channelConfig: {} as Record<string, string>,
+  })
 
-  // ── Load agents ─────────────────────────────────────────────────────────────
-
-  async function load() {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await agentsApi.list()
-      setAgents(data)
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
+  function load() {
+    setLoading(true)
+    agentsApi.list().then(setAgents).catch(e => setError(e.message)).finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(load, [])
 
-  // ── Open edit panel ──────────────────────────────────────────────────────────
-
-  function openEdit(agent: Agent) {
-    setEditing(agent)
-    setForm({
-      name:          agent.name,
-      slug:          agent.slug,
-      description:   agent.description ?? '',
-      systemPrompt:  agent.systemPrompt,
-      modelProvider: agent.modelProvider,
-      modelId:       agent.modelId,
-      channel:       agent.channel,
-      isActive:      agent.isActive ?? true,
-    })
-    setPanel('edit')
+  function resetForm() {
+    setForm({ name: '', slug: '', description: '', systemPrompt: '', modelProvider: 'openrouter', modelId: '', channel: 'whatsapp', apiKeys: {}, channelConfig: {} })
   }
 
   function openCreate() {
-    setEditing(null)
-    setForm(EMPTY_FORM)
-    setPanel('create')
+    resetForm()
+    setCreating(true)
+    setEditingId(null)
   }
 
-  function closePanel() {
-    setPanel('none')
-    setEditing(null)
+  function openEdit(a: Agent) {
+    setForm({
+      name: a.name, slug: a.slug, description: a.description ?? '', systemPrompt: a.systemPrompt,
+      modelProvider: a.modelProvider, modelId: a.modelId, channel: a.channel,
+      apiKeys: a.apiKeys ?? {} as Record<string, string>,
+      channelConfig: (a.channelConfig ?? {}) as Record<string, string>,
+    })
+    setEditingId(a.slug)
+    setCreating(false)
   }
 
-  // ── Auto-slug from name ──────────────────────────────────────────────────────
-
-  function handleNameChange(name: string) {
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    setForm(f => ({ ...f, name, ...(panel === 'create' ? { slug } : {}) }))
-  }
-
-  // ── Save (create or update) ──────────────────────────────────────────────────
-
-  async function handleSave() {
-    if (!form.name || !form.slug || !form.systemPrompt) return
+  async function handleSave(e: FormEvent) {
+    e.preventDefault()
+    setSaving(true)
     try {
-      setSaving(true)
-      if (panel === 'create') {
-        await agentsApi.create(form)
-      } else if (editing) {
-        await agentsApi.update(editing.slug, form)
+      const channelConfig: Record<string, unknown> = {}
+      const apiKeys: Record<string, string> = {}
+      for (const f of CRED_FIELDS) {
+        if (f.secret) apiKeys[f.key] = form.apiKeys[f.key] ?? ''
+        else channelConfig[f.key] = form.channelConfig[f.key] ?? ''
       }
-      closePanel()
-      await load()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setSaving(false)
-    }
+      const data: AgentCreateInput = {
+        name: form.name, slug: form.slug, description: form.description || undefined,
+        systemPrompt: form.systemPrompt, modelProvider: form.modelProvider, modelId: form.modelId,
+        channel: form.channel, apiKeys: Object.keys(apiKeys).length ? apiKeys : undefined,
+        channelConfig: Object.keys(channelConfig).length ? channelConfig : undefined,
+      }
+      if (editingId) {
+        await agentsApi.update(editingId, data as AgentUpdateInput)
+      } else {
+        await agentsApi.create(data)
+      }
+      load()
+      setEditingId(null); setCreating(false)
+    } catch (e: any) { setError(e.message) }
+    setSaving(false)
   }
 
-  // ── Toggle active ────────────────────────────────────────────────────────────
-
-  async function handleToggle(agent: Agent) {
+  async function handleDelete(slug: string) {
+    if (!confirm(`Delete agent "${slug}"?`)) return
     try {
-      await agentsApi.update(agent.slug, { isActive: !agent.isActive })
-      await load()
-    } catch (e) {
-      setError((e as Error).message)
-    }
+      await agentsApi.delete(slug)
+      load()
+    } catch (e: any) { setError(e.message) }
   }
 
-  // ── Delete ───────────────────────────────────────────────────────────────────
-  // The API doesn't expose DELETE yet — we deactivate instead
+  const inForm = creating || editingId
 
-  async function handleDelete(agent: Agent) {
-    try {
-      await agentsApi.update(agent.slug, { isActive: false })
-      setDeleteId(null)
-      await load()
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
-
-  // ── Render ───────────────────────────────────────────────────────────────────
-
-  const agentColor = (slug: string) =>
-    slug === 'taji' ? 'blue' : slug === 'elim' ? 'purple' : 'gray'
-
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    blue:   { bg: 'bg-blue-50',   text: 'text-blue-600' },
-    purple: { bg: 'bg-purple-50', text: 'text-purple-600' },
-    gray:   { bg: 'bg-gray-100',  text: 'text-gray-500' },
-  }
+  if (loading) return <div className="flex items-center gap-2 text-muted-foreground py-12"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
+  if (error && agents.length === 0) return <div className="text-red-600 py-12">{error}</div>
 
   return (
-    <div className="space-y-6">
-
-      {/* Header */}
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Agents</h1>
-          <p className="text-sm text-gray-500 mt-1">Create, configure and manage your AI agents</p>
+          <h1 className="text-2xl font-bold">Agents</h1>
+          <p className="text-sm text-muted-foreground">Create, configure and manage your AI agents</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={16} /> New Agent
-        </button>
+        <Button onClick={openCreate} disabled={!!inForm}><Plus className="h-4 w-4 mr-1" /> New Agent</Button>
       </div>
 
-      {/* Error banner */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex justify-between">
-          {error}
-          <button onClick={() => setError(null)}><X size={14} /></button>
-        </div>
-      )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {/* Loading */}
-      {loading && (
-        <div className="flex justify-center py-16 text-gray-400">
-          <Loader2 size={28} className="animate-spin" />
-        </div>
-      )}
-
-      {/* Agent cards */}
-      {!loading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {agents.map(agent => {
-            const c = colorMap[agentColor(agent.slug)]
-            return (
-              <div key={agent.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl ${c.bg}`}>
-                      <Bot size={20} className={c.text} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{agent.name}</h3>
-                      <span className="text-xs text-gray-400 font-mono">/{agent.slug}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleToggle(agent)}
-                    className={`transition-colors ${agent.isActive ? 'text-emerald-500' : 'text-gray-300'}`}
-                    title={agent.isActive ? 'Deactivate' : 'Activate'}
-                  >
-                    {agent.isActive ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                  </button>
+      {inForm && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">{editingId ? 'Edit Agent' : 'New Agent'}</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Name</Label>
+                  <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
                 </div>
-
-                {agent.description && (
-                  <p className="text-sm text-gray-500 mt-3 line-clamp-2">{agent.description}</p>
-                )}
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full font-mono">{agent.modelId}</span>
-                  <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{agent.channel}</span>
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                    agent.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'
-                  }`}>
-                    {agent.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end gap-3">
-                  <button
-                    onClick={() => setDeleteId(agent.id)}
-                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 font-medium transition-colors"
-                  >
-                    <Trash2 size={12} /> Deactivate
-                  </button>
-                  <button
-                    onClick={() => openEdit(agent)}
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                  >
-                    <Pencil size={12} /> Edit
-                  </button>
+                <div className="space-y-1">
+                  <Label>Slug</Label>
+                  <Input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} required disabled={!!editingId} />
                 </div>
               </div>
-            )
-          })}
-
-          {agents.length === 0 && (
-            <div className="col-span-2 text-center py-16 text-gray-400">
-              <Bot size={40} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No agents yet. Create your first one.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Confirm deactivate dialog */}
-      {deleteId && (() => {
-        const agent = agents.find(a => a.id === deleteId)!
-        return (
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
-              <h3 className="font-bold text-gray-900 mb-2">Deactivate {agent.name}?</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                This will stop the agent from responding to messages. You can reactivate it at any time.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteId(null)}
-                  className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDelete(agent)}
-                  className="flex-1 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors"
-                >
-                  Deactivate
-                </button>
+              <div className="space-y-1">
+                <Label>Description</Label>
+                <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
               </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* Create / Edit slide-over panel */}
-      {panel !== 'none' && (
-        <div className="fixed inset-0 bg-black/30 z-40 flex justify-end" onClick={closePanel}>
-          <div
-            className="w-full max-w-lg bg-white h-full shadow-xl flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Panel header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">
-                {panel === 'create' ? 'New Agent' : `Edit — ${editing?.name}`}
-              </h2>
-              <button onClick={closePanel} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Panel form */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-
-              <Field label="Name *">
-                <input
-                  value={form.name}
-                  onChange={e => handleNameChange(e.target.value)}
-                  placeholder="e.g. Taji"
-                  className={input}
-                />
-              </Field>
-
-              <Field label="Slug *">
-                <input
-                  value={form.slug}
-                  onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
-                  placeholder="e.g. taji"
-                  className={`${input} font-mono`}
-                  disabled={panel === 'edit'}
-                />
-                {panel === 'edit' && (
-                  <p className="text-xs text-gray-400 mt-1">Slug cannot be changed after creation.</p>
-                )}
-              </Field>
-
-              <Field label="Description">
-                <input
-                  value={form.description ?? ''}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="Short description of what this agent does"
-                  className={input}
-                />
-              </Field>
-
-              <Field label="Model">
-                <select
-                  value={`${form.modelProvider}|${form.modelId}`}
-                  onChange={e => {
-                    const [modelProvider, modelId] = e.target.value.split('|')
-                    setForm(f => ({ ...f, modelProvider, modelId }))
-                  }}
-                  className={input}
-                >
-                  {MODEL_OPTIONS.map(m => (
-                    <option key={`${m.provider}|${m.id}`} value={`${m.provider}|${m.id}`}>
-                      {m.label ?? `${m.provider} — ${m.id}`}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Channel">
-                <select
-                  value={form.channel}
-                  onChange={e => setForm(f => ({ ...f, channel: e.target.value }))}
-                  className={input}
-                >
-                  {CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
-                </select>
-              </Field>
-
-              <Field label="System Prompt *">
+              <div className="space-y-1">
+                <Label>System Prompt</Label>
                 <textarea
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={form.systemPrompt}
                   onChange={e => setForm(f => ({ ...f, systemPrompt: e.target.value }))}
-                  placeholder="You are [name], a..."
-                  rows={12}
-                  className={`${input} resize-y font-mono text-xs`}
+                  required
                 />
-              </Field>
-
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-gray-700">Active</label>
-                <button
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))}
-                  className={`transition-colors ${form.isActive ? 'text-emerald-500' : 'text-gray-300'}`}
-                >
-                  {form.isActive ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <Label>Provider</Label>
+                  <select value={form.modelProvider} onChange={e => setForm(f => ({ ...f, modelProvider: e.target.value }))} className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm">
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="workers-ai">Workers AI</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Model ID</Label>
+                  <Input value={form.modelId} onChange={e => setForm(f => ({ ...f, modelId: e.target.value }))} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>Channel</Label>
+                  <select value={form.channel} onChange={e => setForm(f => ({ ...f, channel: e.target.value }))} className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="sms">SMS</option>
+                  </select>
+                </div>
               </div>
 
-            </div>
+              <details className="border rounded-md p-3">
+                <summary className="text-sm font-medium cursor-pointer">WhatsApp Credentials</summary>
+                <div className="mt-3 space-y-3">
+                  {CRED_FIELDS.map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <Label>{f.label}</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          type={f.secret && !showSecrets[f.key] ? 'password' : 'text'}
+                          value={form.apiKeys[f.key] ?? form.channelConfig[f.key] ?? ''}
+                          onChange={e => {
+                            const val = e.target.value
+                            setForm(prev => {
+                              if (f.secret) return { ...prev, apiKeys: { ...prev.apiKeys, [f.key]: val } }
+                              return { ...prev, channelConfig: { ...prev.channelConfig, [f.key]: val } }
+                            })
+                          }}
+                          className="flex-1"
+                        />
+                        {f.secret && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setShowSecrets(s => ({ ...s, [f.key]: !s[f.key] }))}>
+                            {showSecrets[f.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
 
-            {/* Panel footer */}
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={closePanel}
-                className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !form.name || !form.slug || !form.systemPrompt}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-              >
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                {panel === 'create' ? 'Create Agent' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => { setEditingId(null); setCreating(false) }}>Cancel</Button>
+                <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {agents.length === 0 && !inForm ? (
+        <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No agents configured yet.</CardContent></Card>
+      ) : (
+        <div className="grid gap-3">
+          {agents.map(a => (
+            <Card key={a.id} className={editingId === a.slug ? 'ring-2 ring-blue-400' : ''}>
+              <CardContent className="p-4 flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <Bot className="h-5 w-5 mt-0.5 text-blue-500" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{a.name}</span>
+                      <Badge variant="secondary" className="text-[10px]">{a.slug}</Badge>
+                      <Badge className={a.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>{a.isActive ? 'Active' : 'Inactive'}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{a.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{a.modelProvider}/{a.modelId}</p>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>Edit</Button>
+                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(a.slug)}>Delete</Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
-    </div>
-  )
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const input = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400'
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-      {children}
     </div>
   )
 }

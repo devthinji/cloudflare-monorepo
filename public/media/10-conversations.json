@@ -1,0 +1,51 @@
+{
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Users & Conversations"
+    }
+  ],
+  "buttons": [
+    {
+      "text": "Logout",
+      "tag": "button"
+    },
+    {
+      "text": "Refresh",
+      "tag": "button"
+    },
+    {
+      "text": "",
+      "tag": "button"
+    },
+    {
+      "text": "Users",
+      "tag": "button"
+    },
+    {
+      "text": "Conversations",
+      "tag": "button"
+    }
+  ],
+  "errors": [],
+  "url": "http://localhost:5173/conversations",
+  "text": [
+    "ASSAPPFAC Platform",
+    "Overview",
+    "Agents",
+    "Conversations",
+    "Documents",
+    "Transactions",
+    "Templates",
+    "Settings",
+    "Logout",
+    "View Site",
+    "Users & Conversations",
+    "Everyone who has messaged your agents",
+    "Refresh",
+    "Invalid or expired token",
+    "Users",
+    "Conversations",
+    "No customers yet"
+  ]
+}

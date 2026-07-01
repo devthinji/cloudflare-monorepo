@@ -1,0 +1,39 @@
+{
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Overview"
+    },
+    {
+      "tag": "h2",
+      "text": "Recent Documents"
+    }
+  ],
+  "buttons": [
+    {
+      "text": "Logout",
+      "tag": "button"
+    }
+  ],
+  "errors": [],
+  "url": "http://localhost:5173/",
+  "text": [
+    "ASSAPPFAC Platform",
+    "Overview",
+    "Agents",
+    "Conversations",
+    "Documents",
+    "Transactions",
+    "Templates",
+    "Settings",
+    "Logout",
+    "View Site",
+    "Overview",
+    "Platform health at a glance",
+    "Invalid or expired token",
+    "Recent Documents",
+    "last",
+    "0",
+    "No documents yet"
+  ]
+}

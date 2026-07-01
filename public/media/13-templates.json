@@ -1,0 +1,42 @@
+{
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "SKU Studio"
+    }
+  ],
+  "buttons": [
+    {
+      "text": "Logout",
+      "tag": "button"
+    },
+    {
+      "text": "Upload Template",
+      "tag": "button"
+    },
+    {
+      "text": "",
+      "tag": "button"
+    }
+  ],
+  "errors": [],
+  "url": "http://localhost:5173/templates",
+  "text": [
+    "ASSAPPFAC Platform",
+    "Overview",
+    "Agents",
+    "Conversations",
+    "Documents",
+    "Transactions",
+    "Templates",
+    "Settings",
+    "Logout",
+    "View Site",
+    "SKU Studio",
+    "Upload templates — AI extracts fields — agents sell them",
+    "Upload Template",
+    "Invalid or expired token",
+    "No templates yet",
+    "Upload a .docx, PDF, or image to get started"
+  ]
+}

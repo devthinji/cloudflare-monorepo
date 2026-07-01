@@ -29,3 +29,4 @@ This folder is the canonical source for project context. Read `docs/README.md` f
 - Current build phase: `04_design/01-staging-plan.md`
 - AI provider migration (complete): `04_design/03-tasklist-101.md`
 - Dashboard ↔ DB gap analysis: `04_design/06-dashboard-db-gap-analysis.md`
+- Frontend stack + visual workflow builder: `04_design/07-frontend-stack-blueprint.md`

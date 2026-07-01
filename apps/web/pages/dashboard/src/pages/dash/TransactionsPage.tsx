@@ -1,141 +1,107 @@
 import { useEffect, useState } from 'react'
-import { CreditCard, Search, CheckCircle, XCircle, Clock, Loader2, X, RefreshCw } from 'lucide-react'
-import { transactionsApi, type Transaction } from '../../api/client'
+import { transactionsApi } from '@/api/client'
+import type { Transaction } from '@/api/client'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { CreditCard, RefreshCw, Loader2 } from 'lucide-react'
 
-const STATUS_CONFIG = {
-  completed: { icon: <CheckCircle size={14} />, classes: 'text-emerald-600 bg-emerald-50' },
-  pending:   { icon: <Clock size={14} />,        classes: 'text-orange-500 bg-orange-50'  },
-  failed:    { icon: <XCircle size={14} />,      classes: 'text-red-500 bg-red-50'        },
+const STATUS_STYLE: Record<string, string> = {
+  completed: 'bg-green-100 text-green-700',
+  pending: 'bg-amber-100 text-amber-700',
+  failed: 'bg-red-100 text-red-600',
 }
 
 export default function TransactionsPage() {
-  const [txns,    setTxns]   = useState<Transaction[]>([])
+  const [txs, setTxs] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
-  const [search,  setSearch]  = useState('')
-  const [statusFilter, setStatus] = useState<'all' | 'pending' | 'completed' | 'failed'>('all')
+  const [error, setError] = useState('')
+  const [filter, setFilter] = useState('all')
 
-  async function load() {
-    try {
-      setLoading(true); setError(null)
-      setTxns(await transactionsApi.listAll())
-    } catch (e) { setError((e as Error).message) }
-    finally { setLoading(false) }
+  function load() {
+    setLoading(true)
+    transactionsApi.listAll()
+      .then(setTxs)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(load, [])
 
-  const filtered = txns.filter(t => {
-    const matchStatus = statusFilter === 'all' || t.status === statusFilter
-    const matchSearch = !search ||
-      (t.phoneNumber ?? '').includes(search) ||
-      (t.description ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      t.userId.includes(search)
-    return matchStatus && matchSearch
-  })
+  const counts = {
+    all: txs.length,
+    completed: txs.filter(t => t.status === 'completed').length,
+    pending: txs.filter(t => t.status === 'pending').length,
+    failed: txs.filter(t => t.status === 'failed').length,
+  }
 
-  const totalKes = filtered
-    .filter(t => t.status === 'completed')
-    .reduce((sum, t) => sum + t.amount, 0)
+  const filtered = filter === 'all' ? txs : txs.filter(t => t.status === filter)
+
+  if (loading) return <div className="flex items-center gap-2 text-muted-foreground py-12"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-          <p className="text-sm text-gray-500 mt-1">M-Pesa payments via Daraja API</p>
+          <h1 className="text-2xl font-bold">Transactions</h1>
+          <p className="text-sm text-muted-foreground">M-Pesa payments via Daraja API</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={load} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-2 rounded-xl">
-            <RefreshCw size={14} /> Refresh
-          </button>
-          <div className="bg-white border border-gray-200 rounded-xl px-5 py-3 text-right shadow-sm">
-            <p className="text-xs text-gray-400">Collected (filtered)</p>
-            <p className="text-xl font-bold text-gray-900">KES {totalKes.toLocaleString()}</p>
-          </div>
-        </div>
+        <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4 mr-1" /> Refresh</Button>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex justify-between">
-          {error}<button onClick={() => setError(null)}><X size={14} /></button>
-        </div>
-      )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search phone, user ID, or description…"
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-          {(['all', 'completed', 'pending', 'failed'] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setStatus(s)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors ${
-                statusFilter === s ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
+      <Tabs value={filter} onValueChange={setFilter}>
+        <TabsList>
+          <TabsTrigger value="all">All <span className="text-xs ml-1 text-muted-foreground">({counts.all})</span></TabsTrigger>
+          <TabsTrigger value="completed">Completed <span className="text-xs ml-1 text-muted-foreground">({counts.completed})</span></TabsTrigger>
+          <TabsTrigger value="pending">Pending <span className="text-xs ml-1 text-muted-foreground">({counts.pending})</span></TabsTrigger>
+          <TabsTrigger value="failed">Failed <span className="text-xs ml-1 text-muted-foreground">({counts.failed})</span></TabsTrigger>
+        </TabsList>
 
-      {/* Table */}
-      {loading ? (
-        <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-300" /></div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Phone</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Description</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Receipt</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map(t => {
-                const cfg = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.pending
-                return (
-                  <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3.5 font-mono text-gray-800">{t.phoneNumber ?? t.userId}</td>
-                    <td className="px-5 py-3.5 text-gray-600 hidden sm:table-cell">{t.description ?? '—'}</td>
-                    <td className="px-5 py-3.5 font-semibold text-gray-900">{t.currency} {t.amount}</td>
-                    <td className="px-5 py-3.5">
-                      <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium capitalize ${cfg.classes}`}>
-                        {cfg.icon}{t.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 font-mono text-xs text-gray-400 hidden md:table-cell">
-                      {t.mpesaReceiptNumber ?? '—'}
-                    </td>
-                    <td className="px-5 py-3.5 text-xs text-gray-400 hidden lg:table-cell">
-                      {new Date(t.createdAt).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </td>
+        <TabsContent value={filter} className="mt-4">
+          {filtered.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No {filter === 'all' ? '' : filter} transactions.</CardContent></Card>
+          ) : (
+            <div className="rounded-md border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-left">
+                    <th className="p-3 font-medium">ID</th>
+                    <th className="p-3 font-medium">Amount</th>
+                    <th className="p-3 font-medium">Status</th>
+                    <th className="p-3 font-medium">User</th>
+                    <th className="p-3 font-medium">Agent</th>
+                    <th className="p-3 font-medium">Receipt</th>
+                    <th className="p-3 font-medium">Date</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
-            <div className="py-16 text-center text-gray-400">
-              <CreditCard size={32} className="mx-auto mb-2 opacity-30" />
-              <p className="text-sm">{loading ? '' : txns.length === 0 ? 'No transactions yet' : 'No transactions match your search'}</p>
+                </thead>
+                <tbody className="divide-y">
+                  {filtered.map(t => (
+                    <tr key={t.id} className="hover:bg-gray-50">
+                      <td className="p-3 font-mono text-xs">{t.id.slice(0, 12)}…</td>
+                      <td className="p-3 font-medium">
+                        <div className="flex items-center gap-1">
+                          <CreditCard className="h-3 w-3" />
+                          {t.currency} {t.amount}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <Badge className={STATUS_STYLE[t.status] ?? ''}>{t.status}</Badge>
+                      </td>
+                      <td className="p-3 text-muted-foreground">{t.userId}</td>
+                      <td className="p-3"><Badge variant="secondary" className="text-[10px]">{t.agentSlug}</Badge></td>
+                      <td className="p-3 font-mono text-xs text-muted-foreground">{t.mpesaReceiptNumber ?? '—'}</td>
+                      <td className="p-3 text-muted-foreground text-xs">{new Date(t.createdAt).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

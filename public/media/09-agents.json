@@ -1,0 +1,41 @@
+{
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Agents"
+    }
+  ],
+  "buttons": [
+    {
+      "text": "Logout",
+      "tag": "button"
+    },
+    {
+      "text": "New Agent",
+      "tag": "button"
+    },
+    {
+      "text": "",
+      "tag": "button"
+    }
+  ],
+  "errors": [],
+  "url": "http://localhost:5173/agents",
+  "text": [
+    "ASSAPPFAC Platform",
+    "Overview",
+    "Agents",
+    "Conversations",
+    "Documents",
+    "Transactions",
+    "Templates",
+    "Settings",
+    "Logout",
+    "View Site",
+    "Agents",
+    "Create, configure and manage your AI agents",
+    "New Agent",
+    "Invalid or expired token",
+    "No agents yet. Create your first one."
+  ]
+}

@@ -1,6 +1,7 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
 import {
-  LayoutDashboard, Bot, MessageSquare, FileText, CreditCard, Settings, Globe, Package,
+  LayoutDashboard, Bot, MessageSquare, FileText, CreditCard, Settings, Globe, Package, LogOut, GitBranch,
 } from 'lucide-react'
 
 const NAV = [
@@ -10,10 +11,19 @@ const NAV = [
   { to: '/documents',     icon: <FileText size={18} />,        label: 'Documents',     end: false },
   { to: '/transactions',  icon: <CreditCard size={18} />,      label: 'Transactions',  end: false },
   { to: '/templates',     icon: <Package size={18} />,         label: 'Templates',     end: false },
+  { to: '/workflow',      icon: <GitBranch size={18} />,      label: 'Workflow',      end: false },
   { to: '/settings',      icon: <Settings size={18} />,        label: 'Settings',      end: false },
 ]
 
 export default function DashLayout() {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
@@ -46,8 +56,18 @@ export default function DashLayout() {
           ))}
         </nav>
 
+        {/* Logout */}
+        <div className="px-3 border-t border-gray-100">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut size={18} /> Logout
+          </button>
+        </div>
+
         {/* View site link — external */}
-        <div className="px-3 py-4 border-t border-gray-100">
+        <div className="px-3 pb-4 border-t border-gray-100">
           <a
             href="/"
             target="_blank"

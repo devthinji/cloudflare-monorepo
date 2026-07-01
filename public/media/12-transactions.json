@@ -1,0 +1,70 @@
+{
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Transactions"
+    }
+  ],
+  "buttons": [
+    {
+      "text": "Logout",
+      "tag": "button"
+    },
+    {
+      "text": "Refresh",
+      "tag": "button"
+    },
+    {
+      "text": "",
+      "tag": "button"
+    },
+    {
+      "text": "all",
+      "tag": "button"
+    },
+    {
+      "text": "completed",
+      "tag": "button"
+    },
+    {
+      "text": "pending",
+      "tag": "button"
+    },
+    {
+      "text": "failed",
+      "tag": "button"
+    }
+  ],
+  "errors": [],
+  "url": "http://localhost:5173/transactions",
+  "text": [
+    "ASSAPPFAC Platform",
+    "Overview",
+    "Agents",
+    "Conversations",
+    "Documents",
+    "Transactions",
+    "Templates",
+    "Settings",
+    "Logout",
+    "View Site",
+    "Transactions",
+    "M-Pesa payments via Daraja API",
+    "Refresh",
+    "Collected (filtered)",
+    "KES",
+    "0",
+    "Invalid or expired token",
+    "all",
+    "completed",
+    "pending",
+    "failed",
+    "Phone",
+    "Description",
+    "Amount",
+    "Status",
+    "Receipt",
+    "Date",
+    "No transactions yet"
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Settings"
+    },
+    {
+      "tag": "h2",
+      "text": "AI Provider"
+    },
+    {
+      "tag": "h2",
+      "text": "WhatsApp (Meta Cloud API)"
+    },
+    {
+      "tag": "h2",
+      "text": "M-Pesa Daraja"
+    },
+    {
+      "tag": "h2",
+      "text": "Platform"
+    }
+  ],
+  "buttons": [
+    {
+      "text": "Logout",
+      "tag": "button"
+    }
+  ],
+  "errors": [],
+  "url": "http://localhost:5173/settings",
+  "text": [
+    "ASSAPPFAC Platform",
+    "Overview",
+    "Agents",
+    "Conversations",
+    "Documents",
+    "Transactions",
+    "Templates",
+    "Settings",
+    "Logout",
+    "View Site",
+    "Settings",
+    "Platform configuration reference",
+    "Secrets are managed via Doppler, not the dashboard.",
+    "Add or update secrets at",
+    "dashboard.doppler.com",
+    "under project",
+    "cloudflare-monorepo",
+    ", config",
+    "dev",
+    "(local) or",
+    "prd",
+    "(production).",
+    "AI Provider",
+    "OPENROUTER_API_KEY",
+    "OpenRouter API Key",
+    "required",
+    "Primary LLM provider. Used by all workers for text generation.",
+    "https://openrouter.ai/keys",
+    "WhatsApp (Meta Cloud API)",
+    "WHATSAPP_ACCESS_TOKEN"
+  ]
+}
