@@ -18,7 +18,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     window.location.href = '/login'
     throw new Error('Session expired')
   }
-  const json = await res.json() as { success: boolean; data?: T; error?: string }
+  if (!res.ok) throw new Error(`Request failed (${res.status})`)
+  let json: { success: boolean; data?: T; error?: string }
+  try {
+    json = await res.json()
+  } catch {
+    throw new Error(`Invalid response (${res.status})`)
+  }
   if (!json.success) throw new Error(json.error ?? 'Unknown error')
   return json.data as T
 }
