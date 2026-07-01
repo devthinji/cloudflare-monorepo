@@ -25,17 +25,14 @@ export default function DashLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 bg-white border-r border-gray-200 flex flex-col">
-        {/* Logo */}
-        <div className="h-16 flex items-center px-5 border-b border-gray-100">
-          <span className="font-bold text-base tracking-tight">
+    <div className="flex h-screen bg-background overflow-hidden">
+      <aside className="w-56 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col">
+        <div className="h-16 flex items-center px-5 border-b border-sidebar-border">
+          <span className="font-bold text-base tracking-tight text-sidebar-foreground">
             ASSAPPFAC Platform
           </span>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {NAV.map(item => (
             <NavLink
@@ -45,8 +42,8 @@ export default function DashLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                 }`
               }
             >
@@ -56,31 +53,28 @@ export default function DashLayout() {
           ))}
         </nav>
 
-        {/* Logout */}
-        <div className="px-3 border-t border-gray-100">
+        <div className="px-3 border-t border-sidebar-border">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
             <LogOut size={18} /> Logout
           </button>
         </div>
 
-        {/* View site link — external */}
-        <div className="px-3 pb-4 border-t border-gray-100">
+        <div className="px-3 pb-4 border-t border-sidebar-border">
           <a
             href="/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
           >
             <Globe size={18} /> View Site
           </a>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto bg-muted/30">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <Outlet />
         </div>
