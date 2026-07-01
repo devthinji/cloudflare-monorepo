@@ -210,9 +210,9 @@ export const MESSAGES = {
 
   // validation
   summaryPrompt: (lines: string[], skuName: string) =>
-    `Here's what you gave me for your *${skuName}*:\n\n${lines.join('\n')}\n\n✅ Is everything correct?\n\nReply *Yes* to pay and generate, or *No* to edit.`,
+    `Here's what you gave me for your *${skuName}*:\n\n${lines.join('\n')}\n\n✅ Is everything correct?\n\nTap *Yes, looks good* to proceed, or *Edit answers* to make changes.`,
   summaryAmbiguous:
-    `Reply *Yes* to proceed or *No* to edit.`,
+    `Tap *Yes, looks good* to proceed, or *Edit answers* to make changes.`,
 
   // transaction
   paymentPrompt: (currency: string, price: number, customerMessage: string) =>
@@ -224,7 +224,7 @@ export const MESSAGES = {
   paymentWaiting:
     `⏳ Still waiting for M-Pesa confirmation...\n\nCheck your phone and enter your PIN if prompted.\n\nType *cancel* to stop.`,
   paymentFailedRetry:
-    `❌ Payment failed or was cancelled on your phone.\n\nType *retry* to try again or *cancel* to start over.`,
+    `❌ Payment failed or was cancelled on your phone.\n\nTap *Try again* to retry, or *Cancel* to start over.`,
   paymentCancelled:
     `❌ Payment cancelled. Send anything to try a new document.`,
   paymentTrackingLost:
@@ -232,11 +232,11 @@ export const MESSAGES = {
 
   // confirm generation
   confirmGeneration: (skuName: string, docFileName: string | undefined, price: number, currency: string) =>
-    `📄 *${skuName}* ready for delivery.\n\nDocument name: *${docFileName ?? `${skuName.toLowerCase().replace(/\s+/g, '-')}--${Date.now().toString(36)}`}*\n${price > 0 ? `Amount: *${currency} ${price}*` : '*Free*'}\n\nSend *Yes* to generate and deliver, or *No* to cancel.`,
+    `📄 *${skuName}* ready for delivery.\n\nDocument name: *${docFileName ?? `${skuName.toLowerCase().replace(/\s+/g, '-')}--${Date.now().toString(36)}`}*\n${price > 0 ? `Amount: *${currency} ${price}*` : '*Free*'}\n\nTap *Send document* to generate and deliver, or *Cancel* to go back.`,
 
   // generation
   docReady: (title: string) =>
-    `✅ *${title}* is ready!\n\nWould you like to create another document?\n\nReply *Yes* or *No*.`,
+    `✅ *${title}* is ready!\n\nWould you like to create another document?\n\nTap *Create another* or *I'm done*.`,
   docFailed:
     `⚠️ Document generation failed. Please contact support or type /reset.`,
 
