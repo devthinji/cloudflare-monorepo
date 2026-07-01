@@ -155,14 +155,14 @@ export default function AgentsPage() {
         <div className="grid gap-3">
           {agents.map(a => (
             <Card key={a.id} className={editingId === a.slug ? 'ring-2 ring-blue-400' : ''}>
-              <CardContent className="p-4 flex items-start justify-between">
+              <CardContent className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
                   <Bot className="h-5 w-5 mt-0.5 text-blue-500" />
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{a.name}</span>
                       <Badge variant="secondary" className="text-[10px]">{a.slug}</Badge>
-                      <Badge className={a.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>{a.isActive ? 'Active' : 'Inactive'}</Badge>
+                      <Badge className={a.isActive ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}>{a.isActive ? 'Active' : 'Inactive'}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">{a.description}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{a.modelProvider}/{a.modelId}</p>

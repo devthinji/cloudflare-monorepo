@@ -53,7 +53,7 @@ export default function OverviewPanel() {
           const Icon = s.icon
           return (
             <Card key={s.label}>
-              <CardContent className="p-4 flex items-center gap-3">
+              <CardContent className="flex items-center gap-3">
                 <Icon className={`size-8 ${s.color}`} />
                 <div>
                   <p className="text-2xl font-bold">{s.value}</p>

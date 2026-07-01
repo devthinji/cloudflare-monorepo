@@ -10,7 +10,7 @@ LOG_LEVEL   = "info"
 [[d1_databases]]
 binding = "DB"
 database_name = "platform-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "11909a8f-d177-4a08-a48a-fef7ce0c2df3"
 
 [[kv_namespaces]]
 binding = "AAF_KV"

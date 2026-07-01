@@ -42,44 +42,44 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex-row items-center gap-3 p-4 pb-2">
+          <CardHeader className="flex-row items-center gap-3">
             <Bot className="h-5 w-5 text-blue-500" />
             <CardTitle className="text-sm font-medium">Agents</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent>
             <p className="text-3xl font-bold">{agents.length}</p>
             <p className="text-xs text-muted-foreground">{agents.filter(a => a.isActive).length} active</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex-row items-center gap-3 p-4 pb-2">
+          <CardHeader className="flex-row items-center gap-3">
             <Package className="h-5 w-5 text-indigo-500" />
             <CardTitle className="text-sm font-medium">SKUs</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent>
             <p className="text-3xl font-bold">{skus.length}</p>
             <p className="text-xs text-muted-foreground">{activeSkus.length} active</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex-row items-center gap-3 p-4 pb-2">
+          <CardHeader className="flex-row items-center gap-3">
             <Users className="h-5 w-5 text-emerald-500" />
             <CardTitle className="text-sm font-medium">Customers</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent>
             <p className="text-3xl font-bold">{customers.length}</p>
             <p className="text-xs text-muted-foreground">{customers.filter(c => c.registered).length} registered</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex-row items-center gap-3 p-4 pb-2">
+          <CardHeader className="flex-row items-center gap-3">
             <FileText className="h-5 w-5 text-amber-500" />
             <CardTitle className="text-sm font-medium">Documents</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent>
             <p className="text-3xl font-bold">{docs.length}</p>
             <p className="text-xs text-muted-foreground">generated</p>
           </CardContent>

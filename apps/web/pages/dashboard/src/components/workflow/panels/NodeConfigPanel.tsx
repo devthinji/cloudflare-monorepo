@@ -60,12 +60,12 @@ export default function NodeConfigPanel({ selectedNode, selectedEdge, onUpdateNo
   )
 
   return (
-    <aside className="w-72 shrink-0 bg-white border-l border-gray-200 p-3 overflow-y-auto">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Properties</h3>
+    <aside className="w-72 shrink-0 bg-background border-l border-border p-4 overflow-y-auto">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Properties</h3>
       <div className="space-y-4">
         {selectedNode && (
           <Card>
-            <CardHeader className="p-3 pb-2">
+            <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
                 Node
                 <Badge variant="secondary" className="text-[10px]">
@@ -73,7 +73,7 @@ export default function NodeConfigPanel({ selectedNode, selectedEdge, onUpdateNo
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 pt-0 space-y-3">
+            <CardContent className="space-y-3">
               <div className="space-y-1">
                 <Label className="text-xs">Label</Label>
                 <Input value={selectedNode.data.label} onChange={handleLabelChange} className="h-8 text-sm" />
@@ -87,7 +87,7 @@ export default function NodeConfigPanel({ selectedNode, selectedEdge, onUpdateNo
                   <Label className="text-xs">Sub-stages</Label>
                   <div className="flex flex-wrap gap-1">
                     {selectedNode.data.subStages.map(s => (
-                      <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
+                      <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
                         {s}
                       </span>
                     ))}
@@ -100,10 +100,10 @@ export default function NodeConfigPanel({ selectedNode, selectedEdge, onUpdateNo
 
         {selectedEdge && (
           <Card>
-            <CardHeader className="p-3 pb-2">
+            <CardHeader>
               <CardTitle className="text-sm">Edge</CardTitle>
             </CardHeader>
-            <CardContent className="p-3 pt-0 space-y-3">
+            <CardContent className="space-y-3">
               <div className="space-y-1">
                 <Label className="text-xs">Event</Label>
                 <select

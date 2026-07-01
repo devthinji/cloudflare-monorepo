@@ -41,21 +41,27 @@ fi
 
 MIGRATION_FILE="apps/api/gateway/drizzle/migration/0000_init.sql"
 SEED_FILE="apps/api/gateway/drizzle/seed/dev.sql"
-WORKERS=(gateway agent docgen payments)
+WRANGLER_CONFIGS=(
+  apps/api/gateway/wrangler.toml
+  apps/api/agent/wrangler.toml
+  apps/api/docgen/wrangler.toml
+  apps/api/payments/wrangler.toml
+  apps/web/aaf/whatsapp/wrangler.toml
+)
 
 cstep "Applying D1 migrations..."
-for w in "${WORKERS[@]}"; do
+for config in "${WRANGLER_CONFIGS[@]}"; do
   npx wrangler d1 execute platform-db --local \
     --file="$MIGRATION_FILE" \
-    --config="apps/api/$w/wrangler.toml" > /dev/null 2>&1 || true
+    --config="$config" > /dev/null 2>&1 || true
 done
 cpass "Migrations applied"
 
 cstep "Seeding D1 databases..."
-for w in "${WORKERS[@]}"; do
+for config in "${WRANGLER_CONFIGS[@]}"; do
   npx wrangler d1 execute platform-db --local \
     --file="$SEED_FILE" \
-    --config="apps/api/$w/wrangler.toml" > /dev/null 2>&1 || true
+    --config="$config" > /dev/null 2>&1 || true
 done
 cpass "Seed data applied"
 

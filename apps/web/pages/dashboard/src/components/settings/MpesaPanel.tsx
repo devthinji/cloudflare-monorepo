@@ -26,7 +26,7 @@ export default function MpesaPanel() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">
-            Secrets are managed via <code className="bg-gray-100 px-1 rounded text-xs">.dev.vars</code> in local dev
+            Secrets are managed via <code className="bg-muted px-1 rounded text-xs">.dev.vars</code> in local dev
             and Cloudflare Secrets in production.
           </p>
           <table className="w-full text-sm">
@@ -48,7 +48,7 @@ export default function MpesaPanel() {
                   </td>
                   <td className="py-2 text-xs text-muted-foreground">{f.source}</td>
                   <td className="py-2">
-                    <Badge className={f.required ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}>
+                    <Badge className={f.required ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'}>
                       {f.required ? 'Required' : 'Optional'}
                     </Badge>
                   </td>

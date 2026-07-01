@@ -11,8 +11,8 @@ const STAGE_STYLES: Record<StageType, { border: string; badge: string; bg: strin
   auth:     { border: 'border-l-amber-500', badge: 'bg-amber-100 text-amber-700', bg: 'bg-amber-50' },
   collect:  { border: 'border-l-indigo-500', badge: 'bg-indigo-100 text-indigo-700', bg: 'bg-indigo-50' },
   farewell: { border: 'border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-700', bg: 'bg-emerald-50' },
-  closed:   { border: 'border-l-gray-400', badge: 'bg-gray-100 text-gray-600', bg: 'bg-gray-50' },
-  substage: { border: 'border-l-slate-400', badge: 'bg-slate-100 text-slate-600', bg: 'bg-slate-50' },
+  closed:   { border: 'border-l-muted-foreground', badge: 'bg-muted text-muted-foreground', bg: 'bg-muted/50' },
+  substage: { border: 'border-l-muted-foreground', badge: 'bg-muted text-muted-foreground', bg: 'bg-muted/50' },
 }
 
 export type StageNodeData = {
@@ -37,20 +37,20 @@ function StageNode({ data, selected }: StageNodeProps) {
       style.border,
       selected && 'shadow-lg ring-2 ring-blue-400/50',
     )}>
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !border-2 !border-white !bg-gray-400" />
-      <CardHeader className="p-3 pb-1 flex-row items-center justify-between gap-2">
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !border-2 !border-white !bg-muted-foreground" />
+      <CardHeader className="flex-row items-center justify-between gap-2">
         <CardTitle className="text-sm font-semibold truncate">{data.label}</CardTitle>
         <Badge variant="secondary" className={cn('text-[10px] px-1.5 py-0 font-semibold shrink-0', style.badge)}>
           {data.stage}
         </Badge>
       </CardHeader>
       {data.description && (
-        <CardContent className="px-3 pb-3 pt-0">
+        <CardContent>
           <p className="text-xs text-muted-foreground">{data.description}</p>
         </CardContent>
       )}
       {data.subStages && data.subStages.length > 0 && (
-        <div className="px-3 pb-3 flex flex-wrap gap-1">
+        <div className="px-(--card-spacing) pb-(--card-spacing) flex flex-wrap gap-1">
           {data.subStages.map(s => (
             <span key={s} className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', style.bg)}>
               {s}
@@ -58,7 +58,7 @@ function StageNode({ data, selected }: StageNodeProps) {
           ))}
         </div>
       )}
-      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !border-2 !border-white !bg-gray-400" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !border-2 !border-white !bg-muted-foreground" />
     </Card>
   )
 }

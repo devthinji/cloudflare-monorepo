@@ -12,7 +12,7 @@ interface WorkflowToolbarProps {
 
 export default function WorkflowToolbar({ onExport, onImport, onUndo, onRedo, canUndo, canRedo }: WorkflowToolbarProps) {
   return (
-    <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-white">
+    <div className="flex items-center gap-1 p-2 border-b border-border bg-background">
       <Button variant="ghost" size="sm" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
         <Undo2 className="h-4 w-4" />
       </Button>

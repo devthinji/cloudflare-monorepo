@@ -25,3 +25,5 @@ for slug in $(jq -r 'keys[]' "$CRED_FILE"); do
     echo "    FAIL $slug (HTTP $status)"
   fi
 done
+
+bash "$ROOT/scripts/sync-local-d1-agents.sh"

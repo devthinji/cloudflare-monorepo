@@ -45,7 +45,7 @@ export default function PlatformPanel() {
                   </td>
                   <td className="py-2 text-xs text-muted-foreground">{f.source}</td>
                   <td className="py-2">
-                    <Badge className={f.required ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}>
+                    <Badge className={f.required ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'}>
                       {f.required ? 'Required' : 'Optional'}
                     </Badge>
                   </td>

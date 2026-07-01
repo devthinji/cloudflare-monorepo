@@ -8,6 +8,7 @@ SEARCH_ROOTS=(
   "$ROOT/apps/api/agent"
   "$ROOT/apps/api/docgen"
   "$ROOT/apps/api/payments"
+  "$ROOT/apps/web/aaf/whatsapp"
 )
 
 for app in "${SEARCH_ROOTS[@]}"; do

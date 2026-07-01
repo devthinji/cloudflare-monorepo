@@ -64,41 +64,43 @@ export default function TransactionsPage() {
           {filtered.length === 0 ? (
             <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No {filter === 'all' ? '' : filter} transactions.</CardContent></Card>
           ) : (
-            <div className="rounded-md border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-left">
-                    <th className="p-3 font-medium">ID</th>
-                    <th className="p-3 font-medium">Amount</th>
-                    <th className="p-3 font-medium">Status</th>
-                    <th className="p-3 font-medium">User</th>
-                    <th className="p-3 font-medium">Agent</th>
-                    <th className="p-3 font-medium">Receipt</th>
-                    <th className="p-3 font-medium">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filtered.map(t => (
-                    <tr key={t.id} className="hover:bg-gray-50">
-                      <td className="p-3 font-mono text-xs">{t.id.slice(0, 12)}…</td>
-                      <td className="p-3 font-medium">
-                        <div className="flex items-center gap-1">
-                          <CreditCard className="h-3 w-3" />
-                          {t.currency} {t.amount}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <Badge className={STATUS_STYLE[t.status] ?? ''}>{t.status}</Badge>
-                      </td>
-                      <td className="p-3 text-muted-foreground">{t.userId}</td>
-                      <td className="p-3"><Badge variant="secondary" className="text-[10px]">{t.agentSlug}</Badge></td>
-                      <td className="p-3 font-mono text-xs text-muted-foreground">{t.mpesaReceiptNumber ?? '—'}</td>
-                      <td className="p-3 text-muted-foreground text-xs">{new Date(t.createdAt).toLocaleString()}</td>
+            <Card>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="p-4 font-medium">ID</th>
+                      <th className="p-4 font-medium">Amount</th>
+                      <th className="p-4 font-medium">Status</th>
+                      <th className="p-4 font-medium">User</th>
+                      <th className="p-4 font-medium">Agent</th>
+                      <th className="p-4 font-medium">Receipt</th>
+                      <th className="p-4 font-medium">Date</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filtered.map(t => (
+                      <tr key={t.id} className="hover:bg-muted/50">
+                        <td className="p-4 font-mono text-xs">{t.id.slice(0, 12)}&hellip;</td>
+                        <td className="p-4 font-medium">
+                          <div className="flex items-center gap-1">
+                            <CreditCard className="h-3 w-3" />
+                            {t.currency} {t.amount}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <Badge className={STATUS_STYLE[t.status] ?? ''}>{t.status}</Badge>
+                        </td>
+                        <td className="p-4 text-muted-foreground">{t.userId}</td>
+                        <td className="p-4"><Badge variant="secondary" className="text-[10px]">{t.agentSlug}</Badge></td>
+                        <td className="p-4 font-mono text-xs text-muted-foreground">{t.mpesaReceiptNumber ?? '&mdash;'}</td>
+                        <td className="p-4 text-muted-foreground text-xs">{new Date(t.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>

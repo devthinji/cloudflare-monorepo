@@ -98,7 +98,7 @@ export default function TemplatesPage() {
         <div className="grid gap-3">
           {skus.map(sku => (
             <Card key={sku.id}>
-              <CardContent className="p-4">
+              <CardContent>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
                     <Package className="h-5 w-5 mt-0.5 text-indigo-500" />
@@ -106,7 +106,7 @@ export default function TemplatesPage() {
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{sku.name}</span>
                         <Badge variant="secondary" className="text-[10px]">{sku.slug}</Badge>
-                        <Badge className={sku.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
+                        <Badge className={sku.isActive ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}>
                           {sku.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                         <Badge variant="secondary" className="text-[10px]">{sku.currency} {sku.price}</Badge>

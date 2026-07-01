@@ -38,35 +38,37 @@ export default function DocumentsPage() {
       {docs.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No documents generated yet.</CardContent></Card>
       ) : (
-        <div className="rounded-md border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-left">
-                <th className="p-3 font-medium">Title</th>
-                <th className="p-3 font-medium">Type</th>
-                <th className="p-3 font-medium">User</th>
-                <th className="p-3 font-medium">Agent</th>
-                <th className="p-3 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {docs.map(d => (
-                <tr key={d.id} className="hover:bg-gray-50">
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-gray-400" />
-                      <span className="font-medium">{d.title}</span>
-                    </div>
-                  </td>
-                  <td className="p-3 text-muted-foreground">{d.type}</td>
-                  <td className="p-3 text-muted-foreground">{d.userId}</td>
-                  <td className="p-3"><Badge variant="secondary" className="text-[10px]">{d.agentSlug}</Badge></td>
-                  <td className="p-3 text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</td>
+        <Card>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="p-4 font-medium">Title</th>
+                  <th className="p-4 font-medium">Type</th>
+                  <th className="p-4 font-medium">User</th>
+                  <th className="p-4 font-medium">Agent</th>
+                  <th className="p-4 font-medium">Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y">
+                {docs.map(d => (
+                  <tr key={d.id} className="hover:bg-muted/50">
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{d.title}</span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-muted-foreground">{d.type}</td>
+                    <td className="p-4 text-muted-foreground">{d.userId}</td>
+                    <td className="p-4"><Badge variant="secondary" className="text-[10px]">{d.agentSlug}</Badge></td>
+                    <td className="p-4 text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

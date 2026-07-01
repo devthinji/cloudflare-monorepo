@@ -24,8 +24,8 @@ const STAGE_COLORS: Record<StageType, string> = {
   auth:     'bg-amber-500',
   collect:  'bg-indigo-500',
   farewell: 'bg-emerald-500',
-  closed:   'bg-gray-400',
-  substage: 'bg-slate-400',
+  closed:   'bg-muted-foreground',
+  substage: 'bg-muted-foreground',
 }
 
 function onDragStart(event: DragEvent, data: StageNodeData) {
@@ -35,8 +35,8 @@ function onDragStart(event: DragEvent, data: StageNodeData) {
 
 export default function WorkflowSidebar() {
   return (
-    <aside className="w-56 shrink-0 bg-white border-r border-gray-200 p-3 overflow-y-auto">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Stages</h3>
+    <aside className="w-56 shrink-0 bg-background border-r border-border p-4 overflow-y-auto">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Stages</h3>
       <div className="space-y-2">
         {STAGES.map(s => (
           <Card
@@ -45,7 +45,7 @@ export default function WorkflowSidebar() {
             onDragStart={e => onDragStart(e, { stage: s.stage, label: s.label, description: s.description, subStages: s.subStages })}
             className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
           >
-            <CardContent className="p-3">
+            <CardContent>
               <div className="flex items-center gap-2 mb-1">
                 <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', STAGE_COLORS[s.stage])} />
                 <span className="text-sm font-medium">{s.label}</span>
