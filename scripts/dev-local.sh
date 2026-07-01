@@ -24,14 +24,10 @@ done
 
 cecho "\n${C_BOLD}${C_MAGENTA}━━━ Dev Environment — $(date '+%H:%M') ━━━${C_RESET}\n"
 
-# ─── Inject Doppler secrets ────────────────────────────────────────────────────
+# ─── Ensure .dev.vars exist ────────────────────────────────────────────────────
 
-cstep "Injecting Doppler secrets..."
-doppler secrets download --no-file --format env > apps/api/gateway/.dev.vars 2>/dev/null
-doppler secrets download --no-file --format env > apps/api/agent/.dev.vars 2>/dev/null
-doppler secrets download --no-file --format env > apps/api/docgen/.dev.vars 2>/dev/null
-doppler secrets download --no-file --format env > apps/api/payments/.dev.vars 2>/dev/null
-doppler secrets download --no-file --format env > apps/web/aaf/whatsapp/.dev.vars 2>/dev/null
+cstep "Setting up .dev.vars..."
+bash "$ROOT/scripts/setup-dev.sh"
 
 # ─── Validate ──────────────────────────────────────────────────────────────────
 

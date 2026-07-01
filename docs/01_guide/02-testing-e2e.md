@@ -8,11 +8,10 @@ WhatsApp message → ConversationMachine → M-Pesa STK push → document genera
 
 ## Prerequisites
 
-- Doppler CLI installed and linked (`doppler setup`)
 - pnpm 9.x installed
 - ngrok installed
 - Meta WhatsApp Business test number configured
-- Daraja sandbox credentials in Doppler
+- Daraja sandbox credentials in `.dev.vars`
 
 ## Setup
 
@@ -34,10 +33,10 @@ ngrok http 8793
 
 In Meta Business Manager → WhatsApp → Configuration:
 - Webhook URL: https://<ngrok-id>.ngrok-free.app/webhook
-- Verify Token: same as WHATSAPP_VERIFY_TOKEN in Doppler
+- Verify Token: same as WHATSAPP_VERIFY_TOKEN in `.dev.vars`
 - Subscribe to: messages
 
-Update MPESA_CALLBACK_URL in Doppler to:
+Update MPESA_CALLBACK_URL in your `.dev.vars` to:
 https://<ngrok-id>.ngrok-free.app/api/v1/payments/mpesa/callback
 
 ## Test flow

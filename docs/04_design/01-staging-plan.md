@@ -18,7 +18,7 @@ Monorepo, workers, dashboard scaffolded and pushed to GitHub.
 - [x] React dashboard (agents, SKUs, conversations, documents, users, transactions)
 - [x] D1 schema + migrations (all 8 tables)
 - [x] Dev seed: Taji + Elim agents, 3 Taji SKUs at test prices
-- [x] Doppler secrets management
+- [x] `.dev.vars` per worker for local secrets
 - [x] Pre-flight tsc checks clean
 
 Branch: `feat/e2e`
@@ -29,10 +29,9 @@ Goal: A real user WhatsApps Taji, pays KES 1–3 via M-Pesa, and receives a docu
 
 ### Setup
 ```
-doppler login && doppler setup
+pnpm setup:dev            # create .dev.vars from examples, fill in values
 pnpm install && pnpm dev && pnpm db:seed
 ngrok http 8793
-```
 
 ### Test checklist
 - [ ] WhatsApp message arrives at aaf/whatsapp, forwarded to gateway

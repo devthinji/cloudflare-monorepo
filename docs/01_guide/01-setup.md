@@ -5,7 +5,6 @@
 - Node 20+
 - pnpm 9.x (`npm install -g pnpm@9.15.0`)
 - Wrangler CLI (`pnpm add -g wrangler`)
-- Doppler CLI (https://docs.doppler.com/docs/install-cli)
 - ngrok (for WhatsApp webhook tunnelling)
 
 ## First-time setup
@@ -15,27 +14,21 @@ git clone https://github.com/devthinji/cloudflare-monorepo
 cd cloudflare-monorepo
 pnpm install
 
-# Link Doppler (project: cloudflare-monorepo, config: dev)
-doppler login
-doppler setup
+# Create .dev.vars files for local development
+pnpm setup:dev
 ```
 
-Add these secrets in the Doppler dashboard under config `dev`:
+Open each `.dev.vars` and fill in real values:
 
-```
-JWT_SECRET            (any 32+ char string for local dev)
-DB_ENCRYPTION_KEY     (64-char hex string — generate: openssl rand -hex 32)
-OPENROUTER_API_KEY    (from openrouter.ai)
-MPESA_CONSUMER_KEY    (Daraja sandbox)
-MPESA_CONSUMER_SECRET (Daraja sandbox)
-MPESA_PASSKEY         (Daraja sandbox)
-MPESA_SHORTCODE       174379
-MPESA_CALLBACK_URL    https://<your-ngrok-url>/api/v1/payments/mpesa/callback
-MPESA_ENVIRONMENT     sandbox
-WHATSAPP_ACCESS_TOKEN (Meta access token)
-WHATSAPP_VERIFY_TOKEN (any string — must match Meta dashboard)
-WHATSAPP_PHONE_NUMBER_ID (from Meta Business Manager)
-```
+| Worker | `.dev.vars` location | Required vars |
+|---|---|---|
+| gateway | `apps/api/gateway/.dev.vars` | `JWT_SECRET` |
+| agent | `apps/api/agent/.dev.vars` | `OPENROUTER_API_KEY`, `JWT_SECRET`, `DB_ENCRYPTION_KEY` |
+| docgen | `apps/api/docgen/.dev.vars` | `OPENROUTER_API_KEY` |
+| payments | `apps/api/payments/.dev.vars` | `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_PASSKEY`, `MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, `MPESA_ENVIRONMENT` |
+| whatsapp | `apps/web/aaf/whatsapp/.dev.vars` | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` |
+| telegram | `apps/web/aaf/telegram/.dev.vars` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` |
+| sms | `apps/web/aaf/sms/.dev.vars` | `AFRICASTALKING_API_KEY`, `AFRICASTALKING_USERNAME`, `AFRICASTALKING_SENDER_ID` |
 
 ## Start all workers
 
@@ -45,8 +38,7 @@ pnpm dev
 
 This script (scripts/dev-local.sh) will:
 1. Kill any stale processes on dev ports
-2. Inject Doppler secrets into each worker's .dev.vars
-3. Run pre-flight validation
+3. Runs pre-flight validation
 4. Apply D1 migrations locally
 5. Start: gateway (:8787), agent (:8790), docgen (:8791), payments (:8792), whatsapp (:8793), dashboard (:5173)
 6. Start Drizzle Studio at https://local.drizzle.studio
@@ -83,12 +75,14 @@ npx wrangler d1 execute platform-db --local --command "SELECT * FROM skus"
 npx wrangler tail                                 # stream live logs from deployed worker
 ```
 
-## Doppler secrets
+## Secrets management
 
-All worker secrets are managed via Doppler. No .dev.vars files are committed.
+Three silos:
 
-```bash
-doppler secrets download --no-file --format env > <worker>/.dev.vars
-```
+| Source | What | Set by |
+|---|---|---|
+| `.dev.vars` per worker | Local-only secrets (JWT, M-Pesa, OpenRouter, WhatsApp) | You, first-time setup |
+| Cloudflare Secrets | Production secrets (`wrangler secret put`) | CI/CD pipeline |
+| D1 + Dashboard | Per-agent config (WhatsApp tokens, model, prompts) | Dashboard UI |
 
-Each worker's wrangler dev picks up .dev.vars automatically. All .dev.vars files are gitignored.
+`.dev.vars` files are gitignored — never commit them.

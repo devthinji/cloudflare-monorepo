@@ -56,7 +56,7 @@ public/          ← Static assets. public/docx/general_doc.docx — base templa
 5. Hono for all Cloudflare Workers HTTP. No Express or Fastify.
 6. Use `@repo/middleware` for logging. `createLogger(service, env)` — never console.log
    directly in production code paths.
-7. Never commit .dev.vars files. Secrets via Doppler.
+7. Never commit .dev.vars files. Secrets via Cloudflare Secrets (prod) + .dev.vars (dev).
 8. Business logic lives in `version_1.ts` blueprint only. `machine.ts` is a pure
    executor — never add flow logic there.
 9. New sellable document type = new SKU record via dashboard. No code change.
@@ -203,7 +203,6 @@ log.error({ err }, 'something failed')
 - Node 20+
 - pnpm 9.x (`npm install -g pnpm@9.15.0`)
 - Wrangler CLI (`pnpm add -g wrangler`)
-- Doppler CLI (https://docs.doppler.com/docs/install-cli)
 - ngrok (for WhatsApp webhook exposure)
 
 ### First-time setup
@@ -213,25 +212,24 @@ git clone https://github.com/devthinji/cloudflare-monorepo
 cd cloudflare-monorepo
 pnpm install
 
-doppler login
-doppler setup   # project: cloudflare-monorepo, config: dev
+# Create .dev.vars files for local development
+pnpm setup:dev
 ```
 
-Add secrets in Doppler dashboard (config: dev):
+This runs `scripts/setup-dev.sh` which copies `.dev.vars.example` → `.dev.vars` for each worker. Then open each `.dev.vars` and fill in real values:
+
+Each `.dev.vars.example` file documents the required secrets. For local dev you need:
 
 ```
-JWT_SECRET
-OPENROUTER_API_KEY
-MPESA_CONSUMER_KEY
-MPESA_CONSUMER_SECRET
-MPESA_PASSKEY
-MPESA_SHORTCODE          174379
-MPESA_CALLBACK_URL       https://<ngrok-url>/webhooks/mpesa
-MPESA_ENVIRONMENT        sandbox
-WHATSAPP_ACCESS_TOKEN
-WHATSAPP_APP_SECRET
-WHATSAPP_VERIFY_TOKEN
-WHATSAPP_PHONE_NUMBER_ID
+JWT_SECRET=<any-dev-secret>
+OPENROUTER_API_KEY=<your-openrouter-key>
+DB_ENCRYPTION_KEY=<32-char-dev-key>
+MPESA_CONSUMER_KEY=<sandbox-key>
+MPESA_CONSUMER_SECRET=<sandbox-secret>
+MPESA_PASSKEY=<sandbox-passkey>
+MPESA_SHORTCODE=174379
+MPESA_CALLBACK_URL=https://<ngrok-id>.ngrok-free.app/webhooks/mpesa
+MPESA_ENVIRONMENT=sandbox
 ```
 
 ### Start everything
@@ -242,7 +240,7 @@ pnpm dev
 
 This runs `scripts/dev-local.sh` which:
 1. Kills stale processes on dev ports
-2. Injects Doppler secrets into each worker's .dev.vars
+2. Runs `scripts/setup-dev.sh` to ensure `.dev.vars` files exist
 3. Runs pre-flight validation
 4. Applies D1 migrations locally
 5. Starts: gateway (:8787), agent (:8790), docgen (:8791), whatsapp (:8793), dashboard (:5173)
