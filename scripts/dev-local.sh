@@ -17,7 +17,7 @@ trap 'exit 0' SIGINT SIGTERM
 
 # ─── Kill stale processes ──────────────────────────────────────────────────────
 
-DEV_PORTS=(5173 8787 8790 8791 8793 9220 9221 9222 9224)
+DEV_PORTS=(4983 5173 8787 8790 8791 8793 9220 9221 9222 9224)
 for port in "${DEV_PORTS[@]}"; do
   lsof -ti:"$port" 2>/dev/null | xargs -r kill -9 2>/dev/null || true
 done
@@ -73,13 +73,19 @@ wrun apps/api/docgen       8791 9221
 wrun apps/api/gateway      8787 9222
 wrun apps/web/aaf/whatsapp 8793 9224
 (cd apps/web/pages/dashboard && npx vite --port 5173 --host) &
-(pnpm run db:studio) &
+(pnpm run db:studio 2>/dev/null) &
 
 # ─── Seed templates to local R2 ────────────────────────────────────────────────
 
 sleep 2
 bash "$ROOT/scripts/seed-templates.sh" 2>/dev/null &
 cpass "Template seed started"
+
+# ─── Seed agent credentials ─────────────────────────────────────────────────────
+
+sleep 3
+bash "$ROOT/scripts/seed-credentials.sh" &
+cpass "Credentials seed queued"
 
 # ─── Pinned services header ────────────────────────────────────────────────────
 

@@ -5,10 +5,10 @@ MPESA_CONSUMER_KEY="your_mpesa_consumer_key"
 MPESA_CONSUMER_SECRET="your_mpesa_consumer_secret"
 MPESA_PASSKEY="your_mpesa_passkey"
 
-# Var overrides (also set in wrangler.toml with sensible defaults):
+# Cloudflare Secrets (set via `wrangler secret put`; overridden in .dev.vars for local):
 MPESA_SHORTCODE="174379"
 MPESA_CALLBACK_URL="https://your-ngrok-url.ngrok-free.app/webhooks/mpesa"
 MPESA_ENVIRONMENT="sandbox"
 
-# Bindings from wrangler.toml (resolved automatically):
+# Bindings resolved automatically:
 #   DB (D1), PAYMENTS_KV (KV), AGENT_WORKER (service binding)

@@ -56,6 +56,27 @@ This inserts:
 - Elim agent config
 - 3 active SKUs (Professional CV KES 1, Cover Letter KES 2, Resignation Letter KES 3)
 
+## Seed agent credentials
+
+WhatsApp tokens are stored in D1 (encrypted), not env vars. To seed them:
+
+```bash
+# 1. Copy the example file (gitignored)
+cp .test-credentials.example.json .test-credentials.json
+
+# 2. Fill in real WhatsApp tokens
+#    - WHATSAPP_ACCESS_TOKEN from Meta Business Manager
+#    - WHATSAPP_APP_SECRET from Meta App Dashboard
+#    - WHATSAPP_VERIFY_TOKEN (any string, must match Meta webhook config)
+#    - WHATSAPP_PHONE_NUMBER_ID from Meta Business Manager
+
+# 3. Seed to D1 (runs automatically on next pnpm dev, or manually):
+pnpm db:seed-credentials
+```
+
+After seeding, `pnpm dev` will auto-load credentials from D1 — no dashboard
+form-filling needed for the test flow.
+
 ## Service bindings (local ports)
 
 | Worker         | Port | Binding name in gateway    |

@@ -30,6 +30,8 @@ export interface Agent {
   modelId:       string
   channel:       string
   isActive?:     boolean
+  apiKeys?:      Record<string, string>
+  channelConfig?: Record<string, unknown>
   createdAt:     string
   updatedAt:     string
 }

@@ -52,9 +52,9 @@ export async function getAgent(c: Context<{ Bindings: AgentWorkerEnv }>) {
   const db  = createDb(c.env.DB)
   const row = await db.select().from(agents).where(eq(agents.slug, c.req.param('slug')!)).get()
   if (!row) return c.json(err('Agent not found'), 404)
-  // Mask secrets in single-agent GET as well — use PUT to update them
   const keys = row.apiKeys ? (() => { try { return maskRecord(JSON.parse(row.apiKeys) as Record<string, string>) } catch { return {} } })() : undefined
-  return c.json(ok({ ...row, apiKeys: keys }))
+  const channelConfig = row.channelConfig ? (() => { try { return JSON.parse(row.channelConfig!) } catch { return {} } })() : undefined
+  return c.json(ok({ ...row, apiKeys: keys, channelConfig }))
 }
 
 export async function createAgent(c: Context<{ Bindings: AgentWorkerEnv }>) {
@@ -136,4 +136,40 @@ export async function deleteAgent(c: Context<{ Bindings: AgentWorkerEnv }>) {
   await db.update(agents).set({ isActive: false, updatedAt: now() }).where(eq(agents.slug, slug))
   log.info({ slug }, 'agent:deactivated')
   return c.json(ok({ message: 'Agent deactivated' }))
+}
+
+export async function seedCredentials(c: Context<{ Bindings: AgentWorkerEnv }>) {
+  const db  = createDb(c.env.DB)
+  const log = createLogger('agent', c.env)
+
+  const body = await c.req.json() as {
+    slug: string
+    apiKeys?: Record<string, string>
+    channelConfig?: Record<string, unknown>
+  }
+  if (!body.slug) return c.json(err('slug required'), 400)
+
+  const existing = await db.select().from(agents).where(eq(agents.slug, body.slug)).get()
+  if (!existing) return c.json(err('Agent not found'), 404)
+
+  const encKey = c.env.DB_ENCRYPTION_KEY
+  if (!encKey) return c.json(err('DB_ENCRYPTION_KEY not configured'), 500)
+
+  const updates: Record<string, unknown> = { updatedAt: now() }
+
+  if (body.apiKeys) {
+    const existingKeys: Record<string, string> = existing.apiKeys
+      ? await decryptRecord(JSON.parse(existing.apiKeys) as Record<string, string>, encKey)
+      : {}
+    const merged = { ...existingKeys, ...body.apiKeys }
+    updates.apiKeys = JSON.stringify(await encryptRecord(merged, encKey))
+  }
+
+  if (body.channelConfig) {
+    updates.channelConfig = JSON.stringify(await encryptRecord(body.channelConfig as Record<string, string>, encKey))
+  }
+
+  await db.update(agents).set(updates).where(eq(agents.slug, body.slug))
+  log.info({ slug: body.slug }, 'agent:credentials-seeded')
+  return c.json(ok({ updated: true }))
 }

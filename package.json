@@ -14,7 +14,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "npx wrangler d1 execute platform-db --local --file=apps/api/gateway/drizzle/seed/dev.sql --config=apps/api/gateway/wrangler.toml",
     "db:seed:remote": "npx wrangler d1 execute platform-db --remote --file=apps/api/gateway/drizzle/seed/dev.sql --config=apps/api/gateway/wrangler.toml",
-    "db:seed-templates": "bash scripts/seed-templates.sh"
+    "db:seed-templates": "bash scripts/seed-templates.sh",
+    "db:seed-credentials": "bash scripts/seed-credentials.sh"
   },
   "devDependencies": {
     "@libsql/client": "^0.17.4",

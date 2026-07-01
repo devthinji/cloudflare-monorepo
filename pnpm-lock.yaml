@@ -234,6 +234,9 @@ importers:
 
   apps/web/aaf/whatsapp:
     dependencies:
+      '@repo/crypto':
+        specifier: workspace:*
+        version: link:../../../../packages/crypto
       '@repo/middleware':
         specifier: workspace:*
         version: link:../../../../packages/middleware

@@ -59,7 +59,7 @@ Set via `wrangler secret put <NAME>`. One value per environment (dev/staging/pro
 | `MPESA_CALLBACK_URL` | payments | Where Safaricom sends STK callbacks |
 | `MPESA_ENVIRONMENT` | payments | `sandbox` or `production` |
 
-**7 genuine secrets + 2 deployment-specific vars** that are sensitive enough to warrant Cloudflare Secret treatment.
+**All 9 are Cloudflare Secrets** — none in wrangler.toml `[vars]`.
 
 ### 2.2 Silo 2: D1 + Dashboard (agents table)
 
@@ -141,9 +141,9 @@ These are part of the worker build — defined in `wrangler.toml`, changeable on
 | 4 | `MPESA_CONSUMER_KEY` | Doppler | Cloudflare Secret | **Silo 1** |
 | 5 | `MPESA_CONSUMER_SECRET` | Doppler | Cloudflare Secret | **Silo 1** |
 | 6 | `MPESA_PASSKEY` | Doppler | Cloudflare Secret | **Silo 1** |
-| 7 | `MPESA_SHORTCODE` | Dual (wrangler.toml + secret) | Cloudflare Secret only | **Silo 1** |
-| 8 | `MPESA_CALLBACK_URL` | Dual (wrangler.toml + secret) | Cloudflare Secret only | **Silo 1** |
-| 9 | `MPESA_ENVIRONMENT` | Dual (wrangler.toml + secret) | Cloudflare Secret only | **Silo 1** |
+| 7 | `MPESA_SHORTCODE` | Cloudflare Secret ✅ | Cloudflare Secret only | **Silo 1** |
+| 8 | `MPESA_CALLBACK_URL` | Cloudflare Secret ✅ | Cloudflare Secret only | **Silo 1** |
+| 9 | `MPESA_ENVIRONMENT` | Cloudflare Secret ✅ | Cloudflare Secret only | **Silo 1** |
 | 10 | `WHATSAPP_ACCESS_TOKEN` | Doppler | D1 `agents.api_keys.whatsappAccessToken` | **Silo 2** |
 | 11 | `WHATSAPP_APP_SECRET` | Doppler | D1 `agents.api_keys.whatsappAppSecret` | **Silo 2** |
 | 12 | `WHATSAPP_VERIFY_TOKEN` | Doppler | D1 `agents.api_keys.whatsappVerifyToken` | **Silo 2** |
@@ -204,9 +204,9 @@ Currently WhatsApp tokens are Cloudflare Secrets shared across all agents. For m
 - `appSecret` → needed per-agent for webhook signature verification
 - `verifyToken` → needed per-agent for webhook setup
 
-### Problem 5: M-Pesa variables are split across wrangler.toml and secrets
+### ~~Problem 5: M-Pesa variables are split across wrangler.toml and secrets~~ ✅ Resolved
 
-`MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, and `MPESA_ENVIRONMENT` are defined as both `wrangler.toml [vars]` (with placeholder defaults) AND expected as secrets in `.dev.vars.example`. This dual-source pattern is confusing — the wrangler.toml defaults will be baked into the build, while secrets override at runtime. Cleanest approach: all M-Pesa config as Cloudflare Secrets, remove from `wrangler.toml [vars]`.
+`MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, and `MPESA_ENVIRONMENT` were defined as both `wrangler.toml [vars]` (with placeholder defaults) AND expected as secrets in `.dev.vars.example`. This dual-source pattern was confusing — the wrangler.toml defaults would be baked into the build, while secrets override at runtime. **Fixed:** removed from `wrangler.toml [vars]`, now all six M-Pesa config values are Cloudflare Secrets only.
 
 ### Problem 6: Doppler is an unnecessary middleman
 
@@ -231,7 +231,7 @@ Doppler adds a third source of truth for secrets without benefit — Cloudflare 
 | Dashboard `channelConfig` UI | Does not exist | Form inputs for channel settings | **MEDIUM** |
 | Dashboard `Agent` type | Missing `apiKeys` and `channelConfig` | Include both fields | **HIGH** — blocks API calls |
 | GET /agents/:slug | Returns `apiKeys` masked, drops `channelConfig` | Return both (keys masked) | **MEDIUM** — inconsistent |
-| M-Pesa vars in wrangler.toml | Dual-source (`[vars]` + secrets) | All M-Pesa via Cloudflare Secrets only | **LOW** — works but confusing |
+| ~~M-Pesa vars in wrangler.toml~~ | ~~Dual-source (`[vars]` + secrets)~~ | All M-Pesa via Cloudflare Secrets only ✅ | **LOW** — resolved |
 | Telegram/SMS | Manual .dev.vars only | Seeded via dashboard D1 + `.dev.vars.example` | **LOW** — not actively used |
 | OpenRouter key per agent | Single shared Cloudflare Secret | Per-agent key optional (env as fallback) | **LOW** — nice to have |
 | Doppler | Active dependency | **Eliminated** — no longer used | **MEDIUM** — complexity |
@@ -268,11 +268,11 @@ This must happen before CI/CD because it consolidates the secrets source of trut
 10. Update webhook handler to resolve `phoneNumberId → agentSlug` from DB/agents table
 11. Remove `WHATSAPP_*` env vars from aaf-whatsapp wrangler.toml
 12. Remove hard-coded `phone-agent-map.ts`
+### Phase 3 (cleanup, no functional change) ✅ Complete
 
-### Phase 3 (cleanup, no functional change)
-13. Move `MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, `MPESA_ENVIRONMENT` from `wrangler.toml [vars]` to Cloudflare Secrets only
-14. Remove `OPENROUTER_BASE_URL` from `.dev.vars.example` (code never reads it)
-15. Clean up `scripts/dev-local.sh` — no more Doppler injection, use `.dev.vars` files
+13. ✅ Move `MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, `MPESA_ENVIRONMENT` from `wrangler.toml [vars]` to Cloudflare Secrets only
+14. ✅ Remove `OPENROUTER_BASE_URL` from `.dev.vars.example` (code never reads it)
+15. ✅ Clean up `scripts/dev-local.sh` — no more Doppler injection, use `.dev.vars` files
 
 ---
 
@@ -395,7 +395,7 @@ The only exception: the `DB_ENCRYPTION_KEY` Cloudflare Secret must be set before
 | `apps/web/aaf/whatsapp/src/controllers/outgoing/send.ts` | Read per-agent `accessToken` and `phoneNumberId` from DB |
 | `apps/web/aaf/whatsapp/src/types/env.ts` | Remove `WHATSAPP_*` from env type |
 | `apps/web/aaf/whatsapp/wrangler.toml` | Remove `WHATSAPP_*` secrets |
-| `apps/api/payments/wrangler.toml` | Move `MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, `MPESA_ENVIRONMENT` to secrets only |
+| `apps/api/payments/wrangler.toml` | Move `MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, `MPESA_ENVIRONMENT` to secrets only ✅ |
 | `scripts/dev-local.sh` | Remove Doppler injection — workers read from `.dev.vars` |
 | `scripts/setup-dev.sh` | **New** — copies `.dev.vars.example` → `.dev.vars` per worker |
 | `.github/workflows/deploy.yml` | **New** — `wrangler secret put` for CI/CD (future) |

@@ -232,6 +232,19 @@ MPESA_CALLBACK_URL=https://<ngrok-id>.ngrok-free.app/webhooks/mpesa
 MPESA_ENVIRONMENT=sandbox
 ```
 
+### Seed agent credentials for testing
+
+WhatsApp tokens are no longer env vars — they live in D1, encrypted. To seed them:
+
+```bash
+# Create .test-credentials.json (copy from .test-credentials.example.json)
+cp .test-credentials.example.json .test-credentials.json
+# Fill in real WhatsApp tokens, then:
+pnpm db:seed-credentials
+```
+
+This POSTs each agent's credentials to the agent worker's seed endpoint, which encrypts and saves to D1. The aaf-whatsapp worker reads them from D1 at runtime.
+
 ### Start everything
 
 ```bash

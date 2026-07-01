@@ -82,12 +82,14 @@ The callback must be a public HTTPS URL. Expose the payments worker directly:
 ```bash
 ngrok http 8792
 ```
-Set in Doppler:
+Set in `.dev.vars`:
 ```
 MPESA_CALLBACK_URL=https://<ngrok-id>.ngrok-free.app/webhooks/mpesa
 ```
 
-## Required secrets (Doppler)
+## Required secrets (Cloudflare Secrets)
+
+All six are set via `wrangler secret put` for production, and in `.dev.vars` for local dev.
 
 ```
 MPESA_CONSUMER_KEY

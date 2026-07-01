@@ -9,7 +9,7 @@ import { sendTextMessage } from '../../lib/whatsapp'
 import { deliverDocument } from '../../pipelines'
 import type { Env } from '../../types/env'
 import { DEFAULT_AGENT } from '../../types/env'
-import { PHONE_NUMBER_ID_TO_AGENT } from '../../config/phone-agent-map'
+import { resolveAgentCredentials } from '../../lib/agent-credentials'
 
 const TAG_WIDTH = 7
 
@@ -23,11 +23,6 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
   try {
     const rawBody = await c.req.text()
     const signature = c.req.header('X-Hub-Signature-256') ?? null
-
-    const validSig = await verifySignature(rawBody, signature, c.env.WHATSAPP_APP_SECRET)
-    if (!validSig) {
-      log('suspicious', 'X-Hub-Signature-256 mismatch or missing')
-    }
 
     let payload: WaWebhookPayload
     try {
@@ -48,6 +43,19 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
       return c.json(ok(null))
     }
 
+    const phoneNumberId = change.value.metadata.phone_number_id
+
+    const agentCreds = await resolveAgentCredentials(c.env.DB, c.env.DB_ENCRYPTION_KEY, phoneNumberId)
+    if (!agentCreds) {
+      log('suspicious', `no agent found for phoneNumberId: ${phoneNumberId}`)
+      return c.json(ok(null))
+    }
+
+    const validSig = await verifySignature(rawBody, signature, agentCreds.appSecret)
+    if (!validSig) {
+      log('suspicious', 'X-Hub-Signature-256 mismatch or missing')
+    }
+
     const statusUpdate = parseStatusUpdate(payload)
     if (statusUpdate) {
       log('status', statusUpdate.status)
@@ -61,7 +69,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
       return c.json(ok(null))
     }
 
-      const { from, text, phoneNumberId, name, messageId, type: msgType } = incoming
+      const { from, text, name, messageId, type: msgType } = incoming
 
     log('name', name)
     log('number', `+${from}`)
@@ -71,12 +79,11 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
     const sessionModel = new SessionModel(c.env)
     const machineModel = new MachineModel(c.env)
 
-    const mappedAgent = PHONE_NUMBER_ID_TO_AGENT[phoneNumberId]
     const session = await sessionModel.getSession(from)
-    const agentSlug = mappedAgent ?? session.agentSlug ?? DEFAULT_AGENT
+    const agentSlug = session.agentSlug ?? agentCreds.slug
 
-    if (mappedAgent && session.agentSlug !== mappedAgent) {
-      session.agentSlug = mappedAgent
+    if (agentSlug !== agentCreds.slug) {
+      session.agentSlug = agentCreds.slug
     }
 
     log('agent', `${agentSlug} (phoneNumberId: ${phoneNumberId})`)
@@ -85,7 +92,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
       const cmd = text.trim().toLowerCase().split(' ')[0]
 
       if (cmd === '/help') {
-        await sendHelp(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
+        await sendHelp(phoneNumberId, from, agentCreds.accessToken)
         return c.json(ok(null))
       }
 
@@ -95,13 +102,13 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
           session.pendingReset = false
           await sessionModel.saveSession(from, session)
           await machineModel.reset(from, agentSlug)
-          await sendReset(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
+          await sendReset(phoneNumberId, from, agentCreds.accessToken)
           return c.json(ok(null))
         }
         if (['cancel_reset', 'no', 'n', 'cancel', 'back'].includes(cmd)) {
           session.pendingReset = false
           await sessionModel.saveSession(from, session)
-          await sendTextMessage(phoneNumberId, from, 'OK, continuing where we left off.', c.env.WHATSAPP_ACCESS_TOKEN)
+          await sendTextMessage(phoneNumberId, from, 'OK, continuing where we left off.', agentCreds.accessToken)
           return c.json(ok(null))
         }
         // Re-show confirmation
@@ -112,7 +119,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
             { id: 'confirm_reset', title: 'Yes, reset' },
             { id: 'cancel_reset',  title: 'Cancel' },
           ],
-        }, c.env.WHATSAPP_ACCESS_TOKEN)
+        }, agentCreds.accessToken)
         return c.json(ok(null))
       }
 
@@ -126,7 +133,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
             { id: 'confirm_reset', title: 'Yes, reset' },
             { id: 'cancel_reset',  title: 'Cancel' },
           ],
-        }, c.env.WHATSAPP_ACCESS_TOKEN)
+        }, agentCreds.accessToken)
         log('confirm', 'exit/quit/reset — awaiting confirmation')
         return c.json(ok(null))
       }
@@ -144,7 +151,7 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
           phoneNumberId,
           to: from,
           document: { key: doc.key, filename: doc.filename },
-          accessToken: c.env.WHATSAPP_ACCESS_TOKEN,
+          accessToken: agentCreds.accessToken,
           apiGateway: c.env.API_GATEWAY,
         })
         if (!result.delivered) {
@@ -153,13 +160,13 @@ export const handleWebhook = async (c: Context<{ Bindings: Env }>) => {
       }
 
       if (reply) {
-        await sendReply(phoneNumberId, from, reply, c.env.WHATSAPP_ACCESS_TOKEN, messageId, interactive)
+        await sendReply(phoneNumberId, from, reply, agentCreds.accessToken, messageId, interactive)
         log('reply', reply.slice(0, 200))
         log('stage', data?.data?.stage ?? '')
       }
     } catch (e) {
       log('error', e instanceof Error ? e.message : 'Unknown')
-      await sendError(phoneNumberId, from, c.env.WHATSAPP_ACCESS_TOKEN)
+      await sendError(phoneNumberId, from, agentCreds.accessToken)
     }
 
     return c.json(ok(null))

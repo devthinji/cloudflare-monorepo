@@ -22,6 +22,7 @@ app.get('/api/v1/agent/agents/:slug',            AgentsCtrl.getAgent)
 app.post('/api/v1/agent/agents',                 AgentsCtrl.createAgent)
 app.put('/api/v1/agent/agents/:slug',            AgentsCtrl.updateAgent)
 app.delete('/api/v1/agent/agents/:slug',         AgentsCtrl.deleteAgent)
+app.post('/api/v1/agent/agents/seed-credentials', AgentsCtrl.seedCredentials)
 
 app.post('/api/v1/agent/chat',                   ChatCtrl.chat)
 

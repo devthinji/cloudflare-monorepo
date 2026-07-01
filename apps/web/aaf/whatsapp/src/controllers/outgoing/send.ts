@@ -1,6 +1,7 @@
 import type { Context } from 'hono'
 import { ok, err } from '@repo/utils'
 import { sendTextMessage, sendDocument } from '../../lib/whatsapp'
+import { resolveAgentCredentials } from '../../lib/agent-credentials'
 import type { Env } from '../../types/env'
 
 export async function handleSend(c: Context<{ Bindings: Env }>) {
@@ -14,15 +15,17 @@ export async function handleSend(c: Context<{ Bindings: Env }>) {
 
   if (!body.to) return c.json(err('to (phone number) is required'), 400)
   if (!body.type) return c.json(err('type is required: text or document'), 400)
+  if (!body.phoneNumberId) return c.json(err('phoneNumberId is required'), 400)
 
-  const phoneNumberId = body.phoneNumberId ?? c.env.WHATSAPP_PHONE_NUMBER_ID
-  const token = c.env.WHATSAPP_ACCESS_TOKEN
+  const agentCreds = await resolveAgentCredentials(c.env.DB, c.env.DB_ENCRYPTION_KEY, body.phoneNumberId)
+  if (!agentCreds) return c.json(err(`no agent found for phoneNumberId: ${body.phoneNumberId}`), 404)
+
   const to = body.to.startsWith('+') ? body.to : `+${body.to}`
 
   try {
     if (body.type === 'text') {
       if (!body.text) return c.json(err('text is required for type=text'), 400)
-      await sendTextMessage(phoneNumberId, to, body.text, token)
+      await sendTextMessage(body.phoneNumberId, to, body.text, agentCreds.accessToken)
       return c.json(ok({ sent: true, to, type: 'text' }))
     }
 
@@ -31,11 +34,11 @@ export async function handleSend(c: Context<{ Bindings: Env }>) {
         return c.json(err('document.fileUrl and document.filename required for type=document'), 400)
       }
       await sendDocument(
-        phoneNumberId, to,
+        body.phoneNumberId, to,
         body.document.fileUrl,
         body.document.filename,
         body.document.caption ?? '',
-        token,
+        agentCreds.accessToken,
       )
       return c.json(ok({ sent: true, to, type: 'document', filename: body.document.filename }))
     }

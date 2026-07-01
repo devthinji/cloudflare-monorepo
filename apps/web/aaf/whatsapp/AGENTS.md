@@ -16,10 +16,12 @@ forwards to the gateway ConversationMachine. Handles interactive message replies
 
 ## Bindings
 
-| Binding    | Type    | What it is                                |
-|------------|---------|-------------------------------------------|
-| AAF_KV     | KV      | Session: agentSlug + pendingReset flag    |
-| API_GATEWAY| Service | api-gateway ConversationMachine           |
+| Binding         | Type    | What it is                                |
+|-----------------|---------|-------------------------------------------|
+| DB              | D1      | platform-db (read agent credentials)      |
+| DB_ENCRYPTION_KEY| Secret | AES-256-GCM key for decrypting apiKeys    |
+| AAF_KV          | KV      | Session: agentSlug + pendingReset flag    |
+| API_GATEWAY     | Service | api-gateway ConversationMachine           |
 
 ## Routes
 
@@ -66,21 +68,18 @@ function normalisePhone(raw: string): string {
 }
 ```
 
-## Phone number ID → agent mapping
+## Phone number ID → agent mapping (DB-driven)
 
-File: `src/config/phone-agent-map.ts`
+The old `src/config/phone-agent-map.ts` has been replaced by `src/lib/agent-credentials.ts`.
 
-Each WhatsApp business number maps to one agent slug:
-```typescript
-export const PHONE_NUMBER_ID_TO_AGENT: Record<string, string> = {
-  '1038436689362682':   'taji',
-  '729899760214979':    'elim',
-  '122108114672001278': 'test',
-}
-```
+At runtime, `resolveAgentCredentials()` queries D1 for all active agents, decrypts
+their `channelConfig`, and matches the incoming `phoneNumberId` against
+`whatsappPhoneNumberId`. This returns the agent's slug, access token, app secret,
+and verify token — all stored encrypted in the `agents` table.
 
-To add a new agent's number: add its phoneNumberId → slug here.
-Fallback if not found: `DEFAULT_AGENT = 'taji'` (from `src/types/env.ts`).
+New agents are registered via the dashboard (no code change). Credentials are
+seeded via `POST /api/v1/agent/agents/seed-credentials` (encrypted with
+`DB_ENCRYPTION_KEY`).
 
 ## Interactive messages
 
@@ -118,20 +117,21 @@ Flow:
    - `cancel_reset` / no / cancel / back → clear pendingReset, continue
    - Anything else → re-show confirmation buttons
 
-## Required secrets (Doppler)
+## Required secrets
 
 ```
-WHATSAPP_ACCESS_TOKEN      — Meta permanent access token
-WHATSAPP_APP_SECRET        — Meta app secret (for signature verification)
-WHATSAPP_VERIFY_TOKEN      — any string, must match Meta webhook config
-WHATSAPP_PHONE_NUMBER_ID   — from Meta Business Manager
+DB_ENCRYPTION_KEY  — AES-256-GCM key (64 hex chars) for decrypting agent credentials from D1
 ```
+
+WhatsApp credentials (access tokens, app secrets, verify tokens) are stored in D1 per agent,
+encrypted at rest with DB_ENCRYPTION_KEY. See root AGENTS.md → "Seed agent credentials" 
+for how to set them up locally.
 
 ## Meta webhook setup
 
 1. Meta Business Manager → WhatsApp → Configuration
 2. Callback URL: https://<ngrok-id>.ngrok-free.app/webhooks/whatsapp
-3. Verify Token: same as WHATSAPP_VERIFY_TOKEN
+3. Verify Token: any agent's verifyToken (from D1 `agents.api_keys.whatsappVerifyToken`)
 4. Subscribe to: messages
 
 ## Key files

@@ -40,6 +40,7 @@ export interface DocgenWorkerEnv extends BaseWorkerEnv {
 export interface PaymentsWorkerEnv extends BaseWorkerEnv {
   DB:                   D1Database
   PAYMENTS_KV:          KVNamespace
+  // All 6 MPESA_* below are Cloudflare Secrets (wrangler secret put), not wrangler.toml [vars]
   MPESA_CONSUMER_KEY:   string
   MPESA_CONSUMER_SECRET: string
   MPESA_PASSKEY:        string

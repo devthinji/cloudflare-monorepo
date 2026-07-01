@@ -12,6 +12,7 @@ dist/
 .env.*
 !.env.example
 .dev.vars
+.test-credentials.json
 
 # Editor
 .vscode/

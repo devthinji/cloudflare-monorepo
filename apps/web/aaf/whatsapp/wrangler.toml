@@ -7,6 +7,11 @@ compatibility_flags = ["nodejs_compat"]
 ENVIRONMENT = "development"
 LOG_LEVEL   = "info"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "platform-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
 [[kv_namespaces]]
 binding = "AAF_KV"
 id      = "REPLACE_WITH_AAF_WA_KV_ID"
@@ -16,7 +21,4 @@ binding = "API_GATEWAY"
 service = "api-gateway"
 
 # Secrets:
-#   WHATSAPP_ACCESS_TOKEN   (Meta permanent access token)
-#   WHATSAPP_APP_SECRET     (Meta App Secret — for webhook signature verification)
-#   WHATSAPP_VERIFY_TOKEN   (webhook verify token)
-#   WHATSAPP_PHONE_NUMBER_ID
+#   DB_ENCRYPTION_KEY      (AES-256-GCM key, 64 hex chars — for decrypting agent apiKeys/channelConfig)

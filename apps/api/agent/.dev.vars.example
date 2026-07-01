@@ -4,9 +4,10 @@
 
 OPENROUTER_API_KEY="sk-or-v1_your_openrouter_key_here"
 JWT_SECRET="a_random_secret_key_at_least_32_chars_long"
+DB_ENCRYPTION_KEY="your_64_char_hex_key_from_openssl_rand_hex_32"
 
 # Optional: override the default OpenRouter base URL
-# OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
+
 
 # The following bindings are configured in wrangler.toml and
 # resolved automatically by wrangler dev / wrangler deploy:

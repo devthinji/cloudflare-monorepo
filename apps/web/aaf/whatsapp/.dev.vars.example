@@ -1,11 +1,20 @@
 # ─── Secrets ───────────────────────────────────────────────────────────────────
 # Copy this file to .dev.vars and fill in your values.
 
-WHATSAPP_ACCESS_TOKEN="your_meta_permanent_access_token"
-WHATSAPP_APP_SECRET="your_meta_app_secret"
-WHATSAPP_VERIFY_TOKEN="your_webhook_verify_token"
-# Multiple phone number IDs - use the relevant one based on agent
-WHATSAPP_PHONE_NUMBER_ID="1038436689362682"
+# AES-256-GCM key used to decrypt agent credentials from D1.
+# Must match the key used by api-agent (agents.api_keys / channel_config encryption).
+DB_ENCRYPTION_KEY="your_64_char_hex_key"
 
-# Bindings from wrangler.toml (resolved automatically):
-#   AAF_KV (KV), API_GATEWAY (service binding)
+# WhatsApp credentials are no longer stored as env vars.
+# They are read from the D1 `agents.api_keys` and `agents.channel_config` columns,
+# which are encrypted at rest with DB_ENCRYPTION_KEY.
+#
+# To seed credentials for local dev:
+#   1. Create .test-credentials.json (from .test-credentials.example.json)
+#   2. Run: pnpm setup:dev && pnpm seed-credentials
+#   3. This POSTs to the agent worker which encrypts and saves to D1.
+#
+# Required bindings (from wrangler.toml):
+#   DB (D1 — platform-db)
+#   AAF_KV (KV)
+#   API_GATEWAY (service binding)
