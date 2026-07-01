@@ -21,5 +21,5 @@ agentRoutes.all('/*', async (c) => {
       body:    ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
     })
   )
-  return res
+  return c.newResponse(res.body, res.status as any, Object.fromEntries(res.headers.entries()))
 })
