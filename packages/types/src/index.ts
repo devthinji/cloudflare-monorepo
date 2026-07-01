@@ -18,6 +18,7 @@ export interface GatewayEnv extends BaseWorkerEnv {
 
 export interface AgentWorkerEnv extends BaseWorkerEnv {
   DB:              D1Database
+  DB_ENCRYPTION_KEY:  string
   AGENT_KV:        KVNamespace
   DOCS_BUCKET:     R2Bucket
   OPENROUTER_API_KEY: string

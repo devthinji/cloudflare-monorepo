@@ -39,3 +39,5 @@ service = "api-docgen"
 [[services]]
 binding = "PAYMENTS_WORKER"
 service = "api-payments"
+
+# Secrets: DB_ENCRYPTION_KEY (required — 64-char hex, generate: openssl rand -hex 32)

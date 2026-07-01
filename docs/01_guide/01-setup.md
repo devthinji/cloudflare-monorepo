@@ -24,6 +24,7 @@ Add these secrets in the Doppler dashboard under config `dev`:
 
 ```
 JWT_SECRET            (any 32+ char string for local dev)
+DB_ENCRYPTION_KEY     (64-char hex string — generate: openssl rand -hex 32)
 OPENROUTER_API_KEY    (from openrouter.ai)
 MPESA_CONSUMER_KEY    (Daraja sandbox)
 MPESA_CONSUMER_SECRET (Daraja sandbox)

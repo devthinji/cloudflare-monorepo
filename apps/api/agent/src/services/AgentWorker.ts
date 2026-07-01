@@ -4,6 +4,7 @@ import type { AgentWorkerEnv, Agent as AgentConfig } from '@repo/types'
 import { now } from '@repo/utils'
 import { callWithFallback } from '@repo/llm-service'
 import { createDb, agents as agentsTable } from '../models'
+import { decryptRecord } from '@repo/crypto'
 import { InterviewEngine } from '../pipeline/interview-engine'
 import type { SKUSchema } from '../pipeline/field-schema'
 
@@ -39,14 +40,32 @@ export class AgentWorker extends Agent<AgentWorkerEnv, AgentWorkerState> {
 
   private async loadAgent(slug: string): Promise<AgentConfig | null> {
     try {
-      const db = createDb(this.env.DB)
+      const db  = createDb(this.env.DB)
       const row = await db.select().from(agentsTable).where(eq(agentsTable.slug, slug)).get()
       if (!row) return null
+      const encKey = this.env.DB_ENCRYPTION_KEY
+
+      let apiKeys: Record<string, string> | undefined
+      if (row.apiKeys && encKey) {
+        const parsed = JSON.parse(row.apiKeys) as Record<string, string>
+        apiKeys = await decryptRecord(parsed, encKey)
+      } else if (row.apiKeys) {
+        apiKeys = JSON.parse(row.apiKeys) as Record<string, string>
+      }
+
+      let channelConfig: Record<string, unknown> | undefined
+      if (row.channelConfig && encKey) {
+        const parsed = JSON.parse(row.channelConfig) as Record<string, string>
+        channelConfig = await decryptRecord(parsed, encKey) as Record<string, unknown>
+      } else if (row.channelConfig) {
+        channelConfig = JSON.parse(row.channelConfig) as Record<string, unknown>
+      }
+
       return {
         ...row,
         toolsEnabled: JSON.parse(row.toolsEnabled) as string[],
-        channelConfig: row.channelConfig ? JSON.parse(row.channelConfig) as Record<string, unknown> : undefined,
-        apiKeys: row.apiKeys ? JSON.parse(row.apiKeys) as Record<string, string> : undefined,
+        channelConfig,
+        apiKeys,
         isActive: Boolean(row.isActive),
       } as AgentConfig
     } catch { return null }

@@ -18,7 +18,8 @@
     "hono": "^4.4.0",
     "hono-agents": "^0.0.20",
     "hono-rate-limiter": "^0.5.3",
-    "pino": "^9.2.0"
+    "pino": "^9.2.0",
+    "@repo/crypto": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240529.0",
