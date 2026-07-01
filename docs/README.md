@@ -72,6 +72,7 @@ What needs e2e confirmation before production:
 | [02-audit-101.md](04_design/02-audit-101.md) | AI provider audit (Groq → OpenRouter) |
 | [03-tasklist-101.md](04_design/03-tasklist-101.md) | OpenRouter migration tasklist |
 | [04-mpesa.md](04_design/04-mpesa.md) | M-Pesa Daraja integration |
+| [06-dashboard-db-gap-analysis.md](04_design/06-dashboard-db-gap-analysis.md) | Dashboard ↔ DB/R2 gap analysis (7 issues) |
 
 For AI coding agents: see `AGENTS.md` at repo root and `docs/AGENTS.md`.
 
