@@ -9,10 +9,8 @@
     "noEmit":           true,
     "skipLibCheck":     true,
     "types":            ["vite/client"],
-    "ignoreDeprecations": "6.0",
-    "baseUrl":          ".",
     "paths": {
-      "@/*":       ["src/*"],
+      "@/*":         ["./src/*"],
       "@repo/types": ["../../../packages/types/src/index.ts"],
       "@repo/utils": ["../../../packages/utils/src/index.ts"]
     }
