@@ -1,23 +1,66 @@
 import { useEffect, useState } from 'react'
-import { Bot, FileText, MessageSquare, CreditCard, TrendingUp, Users } from 'lucide-react'
+import { Bot, FileText, CreditCard, Users, Loader2 } from 'lucide-react'
+import { agentsApi, customersApi, documentsApi, transactionsApi } from '../../api/client'
 
-interface Stat {
-  label:  string
-  value:  string | number
-  icon:   React.ReactNode
-  change: string
-  up:     boolean
+interface Stats {
+  activeAgents:   number
+  totalCustomers: number
+  totalDocs:      number
+  revenueKes:     number
+}
+
+interface RecentDoc {
+  userId:    string
+  agentSlug: string
+  title:     string
+  createdAt: string
 }
 
 export default function OverviewPage() {
-  const [stats] = useState<Stat[]>([
-    { label: 'Active Agents',    value: 2,      icon: <Bot size={20} />,           change: '+0',    up: true  },
-    { label: 'Conversations',    value: 128,    icon: <MessageSquare size={20} />,  change: '+12%',  up: true  },
-    { label: 'Documents Generated', value: 47,  icon: <FileText size={20} />,       change: '+23%',  up: true  },
-    { label: 'Transactions',     value: 'KES 14,200', icon: <CreditCard size={20} />, change: '+8%', up: true  },
-    { label: 'Active Users',     value: 36,     icon: <Users size={20} />,          change: '+5',    up: true  },
-    { label: 'Avg. Response',    value: '1.2s', icon: <TrendingUp size={20} />,     change: '-0.3s', up: true  },
-  ])
+  const [stats,   setStats]   = useState<Stats | null>(null)
+  const [recent,  setRecent]  = useState<RecentDoc[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true)
+        const [agents, customers, docs, txns] = await Promise.all([
+          agentsApi.list(),
+          customersApi.list(),
+          documentsApi.listAll(),
+          transactionsApi.listAll().catch(() => []),
+        ])
+        setStats({
+          activeAgents:   agents.filter(a => a.isActive).length,
+          totalCustomers: customers.length,
+          totalDocs:      docs.length,
+          revenueKes:     txns
+            .filter(t => t.status === 'completed')
+            .reduce((s, t) => s + t.amount, 0),
+        })
+        setRecent(
+          [...docs]
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .slice(0, 8)
+            .map(d => ({ userId: d.userId, agentSlug: d.agentSlug, title: d.title, createdAt: d.createdAt }))
+        )
+      } catch (e) {
+        setError((e as Error).message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  const statCards = stats ? [
+    { label: 'Active Agents',        value: stats.activeAgents,                    icon: <Bot size={20} /> },
+    { label: 'Registered Users',     value: stats.totalCustomers,                  icon: <Users size={20} /> },
+    { label: 'Documents Generated',  value: stats.totalDocs,                       icon: <FileText size={20} /> },
+    { label: 'Revenue Collected',    value: `KES ${stats.revenueKes.toLocaleString()}`, icon: <CreditCard size={20} /> },
+  ] : []
 
   return (
     <div className="space-y-8">
@@ -26,56 +69,60 @@ export default function OverviewPage() {
         <p className="text-sm text-gray-500 mt-1">Platform health at a glance</p>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stats.map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
-            <div className="p-2 rounded-lg bg-blue-50 text-blue-600">{s.icon}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{s.label}</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{s.value}</p>
-              <span className={`text-xs font-medium ${s.up ? 'text-emerald-600' : 'text-red-500'}`}>
-                {s.change} this week
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
+      )}
 
-      {/* Recent activity */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-700">Recent Activity</h2>
-        </div>
-        <div className="divide-y divide-gray-50">
-          {[
-            { user: '+254712345678', agent: 'taji',  action: 'CV generated',          time: '2m ago'  },
-            { user: '+254798765432', agent: 'taji',  action: 'Application letter sent', time: '11m ago' },
-            { user: '+254700112233', agent: 'elim',  action: 'New conversation',        time: '18m ago' },
-            { user: '+254711223344', agent: 'taji',  action: 'STK push initiated',      time: '34m ago' },
-            { user: '+254733445566', agent: 'elim',  action: 'New conversation',        time: '1h ago'  },
-          ].map((row, i) => (
-            <div key={i} className="px-6 py-3 flex items-center justify-between text-sm">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500 font-mono">
-                  {row.user.slice(-2)}
-                </span>
-                <div>
-                  <span className="font-medium text-gray-800">{row.user}</span>
-                  <span className="text-gray-400 mx-1.5">·</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                    row.agent === 'taji' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
-                  }`}>{row.agent}</span>
+      {loading ? (
+        <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-300" /></div>
+      ) : (
+        <>
+          {/* Stats grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {statCards.map(s => (
+              <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="p-2 rounded-lg bg-blue-50 text-blue-600">{s.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{s.label}</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-0.5">{s.value}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-right">
-                <span className="text-gray-600">{row.action}</span>
-                <span className="text-gray-400 text-xs w-14 text-right">{row.time}</span>
-              </div>
+            ))}
+          </div>
+
+          {/* Recent documents */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-700">Recent Documents</h2>
+              <span className="text-xs text-gray-400">last {recent.length}</span>
             </div>
-          ))}
-        </div>
-      </div>
+            {recent.length === 0 ? (
+              <div className="py-12 text-center text-gray-400 text-sm">No documents yet</div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {recent.map((row, i) => (
+                  <div key={i} className="px-6 py-3 flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500 font-mono shrink-0">
+                        {row.userId.slice(-2)}
+                      </span>
+                      <div className="min-w-0">
+                        <span className="font-medium text-gray-800 truncate block">{row.title}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                          row.agentSlug === 'taji' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                        }`}>{row.agentSlug}</span>
+                      </div>
+                    </div>
+                    <span className="text-gray-400 text-xs whitespace-nowrap ml-4">
+                      {new Date(row.createdAt).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

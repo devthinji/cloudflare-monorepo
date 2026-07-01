@@ -67,7 +67,8 @@ export interface Document {
   type:          string
   title:         string
   fileUrl?:      string
-  templateUsed?: string
+  templateId?:   string
+  templateName?: string   // joined from skus.name by listAllDocs
   createdAt:     string
 }
 export const documentsApi = {
@@ -177,6 +178,31 @@ export const customersApi = {
   patch:  (customerId: string, data: Partial<Pick<Customer, 'name' | 'phone' | 'agentSlug' | 'blocked' | 'metadata'>>) =>
                                                            request<{ updated: boolean }>('PATCH', `/api/v1/agent/customers/${encodeURIComponent(customerId)}`, data),
 }
+
+// ── Transactions ──────────────────────────────────────────────────────────────
+
+export interface Transaction {
+  id:                  string
+  userId:              string
+  agentSlug:           string
+  provider:            string
+  amount:              number
+  currency:            string
+  status:              'pending' | 'completed' | 'failed'
+  merchantRequestId?:  string
+  checkoutRequestId?:  string
+  mpesaReceiptNumber?: string
+  phoneNumber?:        string
+  description?:        string
+  createdAt:           string
+  updatedAt:           string
+}
+
+export const transactionsApi = {
+  listAll:  ()                => request<Transaction[]>('GET', '/api/v1/payments/transactions'),
+  listUser: (userId: string)  => request<Transaction[]>('GET', `/api/v1/payments/transactions/${encodeURIComponent(userId)}`),
+}
+
 
 // Legacy alias so old imports don't break
 export type Template = SKU

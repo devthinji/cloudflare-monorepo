@@ -1,12 +1,14 @@
 import type { Context } from 'hono'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, inArray } from 'drizzle-orm'
 import type { DocgenWorkerEnv } from '@repo/types'
 import { ok, err, generateId, now } from '@repo/utils'
 import { createLogger } from '@repo/middleware'
-import { templates, documents, createDb } from '../models'
+import { templates, documents, skus, createDb } from '../models'
 import { renderTemplate } from '../lib/renderer'
 import { getTemplateBuffer, storeRenderedDoc, docDownloadKey } from '../lib/storage'
 import { generateCv, type CvData } from '../lib/cv'
+
+// ─── Legacy render (templates table) ─────────────────────────────────────────
 
 export async function renderDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const log = createLogger('docgen', c.env)
@@ -35,24 +37,25 @@ export async function renderDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
 
     const fileKey = `documents/${body.userId}/${generateId()}.docx`
     await c.env.DOCS_BUCKET.put(fileKey, outBuffer, { httpMetadata: { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' } })
-    const fileUrl = `https://docs.yourdomain.com/${fileKey}`
 
     const id = generateId()
     await db.insert(documents).values({
       id, userId: body.userId, agentSlug: body.agentSlug,
       templateId: body.templateId, type: tmpl.documentType,
       title: `${tmpl.name} — ${body.fieldValues.full_name ?? body.fieldValues.name ?? body.userId}`,
-      fileUrl, fieldValues: JSON.stringify(body.fieldValues),
+      fileUrl: fileKey, fieldValues: JSON.stringify(body.fieldValues),
       transactionId: body.transactionId ?? null, createdAt: now(),
     })
 
     log.info({ userId: body.userId, templateId: body.templateId }, 'docgen:render:done')
-    return c.json(ok({ id, fileUrl, title: tmpl.name }), 201)
+    return c.json(ok({ id, fileKey, title: tmpl.name }), 201)
   } catch (e) {
     log.error({ err: e }, 'docgen:render:error')
     return c.json(err('Render failed'), 500)
   }
 }
+
+// ─── SKU render ───────────────────────────────────────────────────────────────
 
 export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const log = createLogger('docgen', c.env)
@@ -98,7 +101,7 @@ export async function renderSKUDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   return c.json(ok({ docId, title: `${sku.name}`, fileUrl, key, filename }), 201)
 }
 
-import { skus } from './skus'
+// ─── Legacy CV generator ──────────────────────────────────────────────────────
 
 export async function legacyGenerateCv(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const log = createLogger('docgen', c.env)
@@ -110,16 +113,17 @@ export async function legacyGenerateCv(c: Context<{ Bindings: DocgenWorkerEnv }>
     const docBuffer = await generateCv(body.data)
     const fileKey = `${body.userId}/cv/${generateId()}.docx`
     await c.env.DOCS_BUCKET.put(fileKey, docBuffer, { httpMetadata: { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' } })
-    const fileUrl = `https://docs.yourdomain.com/${fileKey}`
     const id = generateId()
-    await db.insert(documents).values({ id, userId: body.userId, agentSlug: body.agentSlug, type: 'cv', title: `CV — ${body.data.fullName}`, fileUrl, createdAt: now() })
+    await db.insert(documents).values({ id, userId: body.userId, agentSlug: body.agentSlug, type: 'cv', title: `CV — ${body.data.fullName}`, fileUrl: fileKey, createdAt: now() })
     log.info({ userId: body.userId, fileKey }, 'cv:legacy:generated')
-    return c.json(ok({ id, fileUrl, title: `CV — ${body.data.fullName}` }), 201)
+    return c.json(ok({ id, fileKey, title: `CV — ${body.data.fullName}` }), 201)
   } catch (e) {
     log.error({ err: e }, 'cv:legacy:error')
     return c.json(err('Document generation failed'), 500)
   }
 }
+
+// ─── List user docs ───────────────────────────────────────────────────────────
 
 export async function listUserDocs(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const db = createDb(c.env.DB)
@@ -129,17 +133,36 @@ export async function listUserDocs(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   return c.json(ok(rows.map(r => ({ ...r, fieldValues: r.fieldValues ? JSON.parse(r.fieldValues) : null }))))
 }
 
+// ─── List all docs (admin) — FIX: parse fieldValues + join SKU name ──────────
+
 export async function listAllDocs(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const db = createDb(c.env.DB)
   const rows = await db.select().from(documents).orderBy(desc(documents.createdAt)).limit(100)
-  return c.json(ok(rows))
+
+  // Collect all unique templateIds to batch-fetch SKU names
+  const skuIds = [...new Set(rows.map(r => r.templateId).filter(Boolean))] as string[]
+  const skuMap: Record<string, string> = {}
+  if (skuIds.length > 0) {
+    const skuRows = await db.select({ id: skus.id, name: skus.name }).from(skus).where(inArray(skus.id, skuIds))
+    for (const s of skuRows) skuMap[s.id] = s.name
+  }
+
+  return c.json(ok(rows.map(r => ({
+    ...r,
+    fieldValues:  r.fieldValues ? JSON.parse(r.fieldValues) : null,
+    templateName: r.templateId ? (skuMap[r.templateId] ?? null) : null,
+  }))))
 }
+
+// ─── List user docs by path param ────────────────────────────────────────────
 
 export async function listUserDocsByPath(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const db = createDb(c.env.DB)
   const rows = await db.select().from(documents).where(eq(documents.userId, c.req.param('userId')!)).orderBy(desc(documents.createdAt))
-  return c.json(ok(rows))
+  return c.json(ok(rows.map(r => ({ ...r, fieldValues: r.fieldValues ? JSON.parse(r.fieldValues) : null }))))
 }
+
+// ─── Download doc by R2 key ───────────────────────────────────────────────────
 
 export async function downloadDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
   const key = c.req.query('key')

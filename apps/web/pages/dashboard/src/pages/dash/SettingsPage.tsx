@@ -1,110 +1,104 @@
-import { useState } from 'react'
-import { Save, Eye, EyeOff } from 'lucide-react'
+// ─── Settings Page ────────────────────────────────────────────────────────────
+// Secrets are managed via Doppler + wrangler, not the dashboard.
+// This page documents what is required and how to configure each secret.
 
-interface Section {
-  title:    string
-  fields:   { key: string; label: string; type: string; placeholder: string; secret?: boolean }[]
+import { ExternalLink, Info, Shield } from 'lucide-react'
+
+interface SecretDoc {
+  key:         string
+  label:       string
+  description: string
+  where:       string
+  required:    boolean
 }
 
-const SECTIONS: Section[] = [
+const SECRET_DOCS: { section: string; secrets: SecretDoc[] }[] = [
   {
-    title: 'AI Provider',
-    fields: [
-      { key: 'groq_api_key',         label: 'Groq API Key',          type: 'text', placeholder: 'gsk_…',   secret: true },
-      { key: 'default_model',        label: 'Default Model',         type: 'text', placeholder: 'llama-3.3-70b-versatile' },
+    section: 'AI Provider',
+    secrets: [
+      { key: 'OPENROUTER_API_KEY', label: 'OpenRouter API Key',     description: 'Primary LLM provider. Used by all workers for text generation.', where: 'https://openrouter.ai/keys', required: true },
     ],
   },
   {
-    title: 'WhatsApp (Meta Cloud API)',
-    fields: [
-      { key: 'wa_token',             label: 'Access Token',          type: 'text', placeholder: 'EAABs…',  secret: true },
-      { key: 'wa_phone_number_id',   label: 'Phone Number ID',       type: 'text', placeholder: '1234567890' },
-      { key: 'wa_verify_token',      label: 'Webhook Verify Token',  type: 'text', placeholder: 'my-secret-token', secret: true },
+    section: 'WhatsApp (Meta Cloud API)',
+    secrets: [
+      { key: 'WHATSAPP_ACCESS_TOKEN',     label: 'Access Token',         description: 'Meta permanent or long-lived token for sending messages.', where: 'Meta Business Manager → WhatsApp → API Setup', required: true },
+      { key: 'WHATSAPP_PHONE_NUMBER_ID',  label: 'Phone Number ID',      description: 'The numeric ID of your WhatsApp Business phone number.',   where: 'Meta Business Manager → WhatsApp → API Setup', required: true },
+      { key: 'WHATSAPP_VERIFY_TOKEN',     label: 'Webhook Verify Token', description: 'Any secret string — must match what Meta sends to verify your webhook.', where: 'Set by you, then enter in Meta webhook config', required: true },
     ],
   },
   {
-    title: 'M-Pesa Daraja',
-    fields: [
-      { key: 'mpesa_consumer_key',    label: 'Consumer Key',         type: 'text', placeholder: 'abc…',    secret: true },
-      { key: 'mpesa_consumer_secret', label: 'Consumer Secret',      type: 'text', placeholder: 'xyz…',    secret: true },
-      { key: 'mpesa_passkey',         label: 'Passkey',              type: 'text', placeholder: 'bfb2…',   secret: true },
-      { key: 'mpesa_shortcode',       label: 'Shortcode / Till',     type: 'text', placeholder: '174379'   },
-      { key: 'mpesa_callback_url',    label: 'Callback URL',         type: 'text', placeholder: 'https://api.yourdomain.com/webhooks/mpesa' },
+    section: 'M-Pesa Daraja',
+    secrets: [
+      { key: 'MPESA_CONSUMER_KEY',    label: 'Consumer Key',    description: 'Daraja app consumer key.',           where: 'https://developer.safaricom.co.ke', required: true },
+      { key: 'MPESA_CONSUMER_SECRET', label: 'Consumer Secret', description: 'Daraja app consumer secret.',        where: 'https://developer.safaricom.co.ke', required: true },
+      { key: 'MPESA_PASSKEY',         label: 'Passkey',         description: 'Lipa Na M-Pesa Online passkey.',     where: 'https://developer.safaricom.co.ke', required: true },
+      { key: 'MPESA_SHORTCODE',       label: 'Shortcode',       description: 'Paybill or Till number.',            where: 'Safaricom Business Account',        required: true },
+      { key: 'MPESA_CALLBACK_URL',    label: 'Callback URL',    description: 'Public URL that Safaricom calls after payment. Must match gateway /webhooks/mpesa.', where: 'Your deployed gateway URL', required: true },
+      { key: 'MPESA_ENVIRONMENT',     label: 'Environment',     description: '"sandbox" for testing, "production" for live.',  where: 'Set manually', required: true },
     ],
   },
   {
-    title: 'Platform',
-    fields: [
-      { key: 'jwt_secret',           label: 'JWT Secret',            type: 'text', placeholder: 'super-secret…', secret: true },
-      { key: 'r2_public_url',        label: 'R2 Public Domain',      type: 'text', placeholder: 'https://docs.yourdomain.com' },
+    section: 'Platform',
+    secrets: [
+      { key: 'JWT_SECRET',   label: 'JWT Secret',      description: 'Secret key for signing dashboard JWT tokens. Use a 32+ character random string.', where: 'Generate: openssl rand -hex 32',              required: true },
+      { key: 'R2_PUBLIC_URL', label: 'R2 Public Domain', description: 'The public domain for your R2 bucket, used to serve generated documents.', where: 'Cloudflare Dashboard → R2 → Bucket settings', required: false },
     ],
   },
 ]
 
 export default function SettingsPage() {
-  const [values, setValues]   = useState<Record<string, string>>({})
-  const [visible, setVisible] = useState<Record<string, boolean>>({})
-  const [saved, setSaved]     = useState(false)
-
-  function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
-  }
-
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="space-y-8 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Platform configuration — stored as encrypted secrets</p>
+        <p className="text-sm text-gray-500 mt-1">Platform configuration reference</p>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-8">
-        {SECTIONS.map(section => (
-          <div key={section.title} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-              <h2 className="text-sm font-semibold text-gray-700">{section.title}</h2>
-            </div>
-            <div className="divide-y divide-gray-50">
-              {section.fields.map(field => (
-                <div key={field.key} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700 sm:w-48 shrink-0">{field.label}</label>
-                  <div className="relative flex-1">
-                    <input
-                      type={field.secret && !visible[field.key] ? 'password' : 'text'}
-                      value={values[field.key] ?? ''}
-                      onChange={e => setValues(v => ({ ...v, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono pr-9"
-                    />
-                    {field.secret && (
-                      <button
-                        type="button"
-                        onClick={() => setVisible(v => ({ ...v, [field.key]: !v[field.key] }))}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {visible[field.key] ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+      {/* Info banner */}
+      <div className="flex gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3.5 text-sm text-blue-800">
+        <Shield size={18} className="shrink-0 mt-0.5 text-blue-500" />
+        <div>
+          <p className="font-medium">Secrets are managed via Doppler, not the dashboard.</p>
+          <p className="text-blue-600 mt-1">
+            Add or update secrets at{' '}
+            <a href="https://dashboard.doppler.com" target="_blank" rel="noopener noreferrer"
+              className="underline font-medium">dashboard.doppler.com</a>
+            {' '}under project <code className="bg-blue-100 px-1 rounded">cloudflare-monorepo</code>, config <code className="bg-blue-100 px-1 rounded">dev</code> (local) or <code className="bg-blue-100 px-1 rounded">prd</code> (production).
+          </p>
+        </div>
+      </div>
 
-        <button
-          type="submit"
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            saved
-              ? 'bg-emerald-500 text-white'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          }`}
-        >
-          <Save size={15} />
-          {saved ? 'Saved!' : 'Save Settings'}
-        </button>
-      </form>
+      {/* Secret docs per section */}
+      {SECRET_DOCS.map(({ section, secrets }) => (
+        <div key={section} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h2 className="text-sm font-semibold text-gray-700">{section}</h2>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {secrets.map(s => (
+              <div key={s.key} className="px-6 py-4 flex items-start gap-4">
+                <Info size={15} className="text-gray-300 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">{s.key}</code>
+                    <span className="text-sm font-medium text-gray-800">{s.label}</span>
+                    {s.required && <span className="text-xs text-red-500 font-medium">required</span>}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{s.description}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                    <ExternalLink size={11} />
+                    {s.where.startsWith('http')
+                      ? <a href={s.where} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">{s.where}</a>
+                      : s.where
+                    }
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

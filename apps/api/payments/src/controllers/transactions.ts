@@ -12,6 +12,12 @@ export async function listUserTransactions(c: Context<{ Bindings: PaymentsWorker
   return c.json(ok(rows))
 }
 
+export async function listAllTransactions(c: Context<{ Bindings: PaymentsWorkerEnv }>) {
+  const db = createDb(c.env.DB)
+  const rows = await db.select().from(transactions).orderBy(desc(transactions.createdAt)).limit(200)
+  return c.json(ok(rows))
+}
+
 export async function notifyAgent(c: Context<{ Bindings: PaymentsWorkerEnv }>) {
   const log = createLogger('payments', c.env)
   const body = await c.req.json() as { txId: string; userId: string; agentSlug: string; status: string; amount: number }
