@@ -8,11 +8,8 @@ agentRoutes.all('/*', async (c) => {
   const url     = new URL(c.req.url)
   const headers = new Headers(c.req.raw.headers)
   headers.set('X-Internal', 'gateway')
-  // Preserve channel identity from AAF workers
   const channel = c.req.header('X-Channel')
   if (channel) headers.set('X-Channel', channel)
-  const userId = c.req.header('X-User-Id')
-  if (userId) headers.set('X-User-Id', userId)
 
   const res = await c.env.AGENT_WORKER.fetch(
     new Request(url.toString(), {
@@ -21,5 +18,5 @@ agentRoutes.all('/*', async (c) => {
       body:    ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
     })
   )
-  return c.newResponse(res.body, res.status as any, Object.fromEntries(res.headers.entries()))
+  return res
 })
