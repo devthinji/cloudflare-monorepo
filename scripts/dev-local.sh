@@ -79,6 +79,12 @@ wrun apps/web/aaf/whatsapp 8793 9224
 (cd apps/web/pages/dashboard && npx vite --port 5173 --host) &
 (pnpm run db:studio) &
 
+# ─── Seed templates to local R2 ────────────────────────────────────────────────
+
+sleep 2
+bash "$ROOT/scripts/seed-templates.sh" 2>/dev/null &
+cpass "Template seed started"
+
 # ─── Pinned services header ────────────────────────────────────────────────────
 
 cecho ""

@@ -115,6 +115,22 @@ export async function listUserDocsByPath(c: Context<{ Bindings: DocgenWorkerEnv 
   return c.json(ok(rows.map(r => ({ ...r, fieldValues: r.fieldValues ? JSON.parse(r.fieldValues) : null }))))
 }
 
+// ─── Seed template to R2 (internal/dev only) ──────────────────────────────────
+
+export async function seedR2(c: Context<{ Bindings: DocgenWorkerEnv }>) {
+  const log = createLogger('docgen', c.env)
+  const formData = await c.req.formData()
+  const file = formData.get('file') as File | null
+  const key = formData.get('key') as string | null
+  if (!file || !key) return c.json(err('file and key required'), 400)
+  const buffer = await file.arrayBuffer()
+  await c.env.DOCS_BUCKET.put(key, buffer, {
+    httpMetadata: { contentType: file.type || 'application/octet-stream' },
+  })
+  log.info({ key, size: buffer.byteLength }, 'seed:uploaded')
+  return c.json(ok({ key, size: buffer.byteLength }), 201)
+}
+
 // ─── Download doc by R2 key ───────────────────────────────────────────────────
 
 export async function downloadDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {

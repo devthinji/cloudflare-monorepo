@@ -240,7 +240,7 @@ export class AgentWorker extends Agent<AgentWorkerEnv, AgentWorkerState> {
           headers: { 'Content-Type': 'application/json', 'X-Internal': 'agent' },
           body: JSON.stringify({
             userId: this.state.userId, agentSlug: this.state.agentSlug,
-            templateId, fieldValues,
+            skuId: templateId, fieldValues,
           }),
         })
       )
