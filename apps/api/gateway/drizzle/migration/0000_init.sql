@@ -50,27 +50,7 @@ CREATE TABLE `messages` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `templates` (
-	`id` text PRIMARY KEY NOT NULL,
-	`name` text NOT NULL,
-	`slug` text NOT NULL,
-	`description` text,
-	`document_type` text NOT NULL,
-	`tier` text,
-	`agent_slugs` text DEFAULT '[]' NOT NULL,
-	`r2_key` text NOT NULL,
-	`preview_url` text,
-	`field_schema` text DEFAULT '[]' NOT NULL,
-	`price` real DEFAULT 0 NOT NULL,
-	`currency` text DEFAULT 'KES' NOT NULL,
-	`is_active` integer DEFAULT false NOT NULL,
-	`extraction_status` text DEFAULT 'pending' NOT NULL,
-	`extraction_error` text,
-	`created_at` text NOT NULL,
-	`updated_at` text NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `templates_slug_unique` ON `templates` (`slug`);--> statement-breakpoint
+
 CREATE TABLE `transactions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -101,22 +81,7 @@ CREATE TABLE `customers` (
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
 );--> statement-breakpoint
-CREATE TABLE `admins` (
-	`id` text PRIMARY KEY NOT NULL,
-	`name` text NOT NULL,
-	`email` text NOT NULL,
-	`phone` text,
-	`roles` text DEFAULT '["admin"]' NOT NULL,
-	`scope` text,
-	`hash` text NOT NULL,
-	`secret_word` text,
-	`contact` text,
-	`is_active` integer DEFAULT true NOT NULL,
-	`created_at` text NOT NULL,
-	`updated_at` text NOT NULL
-);--> statement-breakpoint
-CREATE UNIQUE INDEX `admins_email_unique` ON `admins` (`email`);
---> statement-breakpoint
+
 CREATE TABLE `skus` (
   `id`                  TEXT PRIMARY KEY NOT NULL,
   `name`                TEXT NOT NULL,

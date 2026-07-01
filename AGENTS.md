@@ -140,11 +140,9 @@ Schema:    `apps/api/gateway/drizzle/schema/database.ts`
 | Table             | Owner    | Purpose                                          |
 |-------------------|----------|--------------------------------------------------|
 | agents            | gateway  | Agent configs (slug, system prompt, model)       |
-| admins            | gateway  | Dashboard admin users (email + hashed password)  |
 | customers         | gateway  | WhatsApp users (was: users) — phone identified   |
 | conversations     | gateway  | One session per customer per agent               |
 | messages          | gateway  | All turns in every conversation                  |
-| templates         | docgen   | Legacy template records                          |
 | skus              | docgen   | Active sellable products (conversation steps)    |
 | sku_agent_access  | docgen   | Which agents can offer which SKUs                |
 | documents         | docgen   | Generated file records (R2 URL)                  |
@@ -283,7 +281,6 @@ What is implemented and ready:
 - Reset/exit confirmation via interactive buttons
 - Phone number ID → agent slug mapping (phone-agent-map.ts)
 - Shared middleware package — coloured logger, rate limiter, error handler
-- admins table + admin seed record
 - sku_agent_access table — per-agent SKU permissions
 - customers table (renamed from users)
 
@@ -295,7 +292,6 @@ What needs e2e confirmation:
 Known gaps (post e2e, pre production):
 - docxtemplater fill not wired to collected field_schema values
 - Elim agent flow blueprint not built (Taji first)
-- Dashboard SKU upload UI not connected to /upload endpoint
 
 ---
 

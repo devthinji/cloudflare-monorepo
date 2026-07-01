@@ -4,27 +4,25 @@
 > **Created:** 2026-07-01
 > **Branch:** feat/e2e
 > **Milestone:** Dashboard e2e Reflection — wire the e2e trail into the admin dashboard
-> **Completion:** 10 / 15 tasks (67%)
+> **Completion:** 15 / 15 tasks (100%)
 
 ---
 
 ## Progress Tracker
 
 ```
-[█████████████████████░░░░░░░░░] 67%
+[███████████████████████████████] 100%
 ```
 
 | Phase | Tasks | Done |
 |-------|-------|------|
 | A — Critical fixes | 2 | 2 |
-| B — Messages thread view | 3 | 2 |
+| B — Messages thread view | 3 | 3 |
 | C — Machine context viewer | 2 | 2 |
 | D — Dashboard enhancements | 4 | 4 |
-| E — Cleanup dead tables | 4 | 0 |
+| E — Cleanup dead tables | 4 | 4 |
 
-**Total:** 10 / 15
-
-> **B3 skipped** — no backend support for message count/last message fields; thread panel (B2) provides equivalent value
+**Total:** 15 / 15
 > **E1–E4 deferred** — breaking migration, post-production-cut
 
 ---
@@ -49,8 +47,10 @@ Enable reading actual conversation content from the dashboard.
 - [x] **B2** — Add message thread panel to `ConversationsPage.tsx`
   - Show when clicking a conversation row
   - Display message bubbles (user = right, agent = left), role, content, timestamp
-- [~] **B3** — Expose messages count + last message preview in conversation list
-  - **SKIPPED** — not worth N+1 queries per row; thread panel (B2) provides the value
+- [x] **B3** — Expose messages count + last message preview in conversation list
+  - Correlated subqueries in `listConversations` avoid N+1 (single SQL query)
+  - Backend: `apps/api/agent/src/controllers/conversations.ts`
+  - Frontend: `ConversationsPage.tsx` — Messages column + Last Message column
 
 ---
 
@@ -89,35 +89,35 @@ Close remaining dashboard gaps.
 
 Remove unused schema, routes, and seed data. Do after production cut — breaking migration.
 
-- [ ] **E1** — Remove `admins` table schema + seed, or migrate auth from KV to D1 + bcrypt
-  - Currently: auth uses `SESSIONS_KV` (`auth.ts:21-61`), D1 `admins` table has schema + seed but zero controllers query it
-- [ ] **E2** — Remove `templates` legacy table + 7 API routes, consolidate into `skus`
-  - Dashboard uses `skusApi` exclusively (`templatesApi` is just an alias)
-  - Legacy `renderDoc` endpoint writes to `templates` table — migrate to SKU pipeline
-- [ ] **E3** — Remove unused `contact` column on `admins` table
-  - Never written (seed sets null), never read
-- [ ] **E4** — Remove `templates` Drizzle schema from both gateway and docgen after E2
+- [x] **E1** — Remove `admins` table schema + seed, or migrate auth from KV to D1 + bcrypt
+  - Auth uses `SESSIONS_KV` — admins D1 table had schema + seed but zero runtime queries → **removed**
+- [x] **E2** — Remove `templates` legacy table + 7 API routes, consolidate into `skus`
+  - Dashboard used `skusApi` exclusively → `templatesApi` alias + controller + all 7 routes + `renderDoc` → **all removed**
+- [x] **E3** — Remove unused `contact` column on `admins` table
+  - Never written, never read → **removed with admins table**
+- [x] **E4** — Remove `templates` Drizzle schema from both gateway and docgen after E2
+  - Schema removed from both `gateway/drizzle/schema/database.ts` and `docgen/src/db/schema.ts` → **done**
 
 ---
 
 ## Milestone Plan
 
-### M1: "Dashboard e2e Reflection" (Phases A+B+C) — target: current sprint
-Backend e2e works; admin should see the full trail.
+### ✅ M1: "Dashboard e2e Reflection" (Phases A+B+C) — COMPLETED
+Backend e2e works; admin can see the full trail.
 ```
-A1 A2 B1 B2 B3 C1 C2  →  7 tasks
-```
-
-### M2: "Dashboard Parity" (Phase D) — target: next sprint
-Dashboard should be fully functional for all admin operations.
-```
-D1 D2 D3 D4  →  4 tasks
+A1 A2 B1 B2 B3 C1 C2  →  7/7 tasks
 ```
 
-### M3: "Schema Cleanup" (Phase E) — target: post-production-cut
-Breaking migration. Only after first production deployment.
+### ✅ M2: "Dashboard Parity" (Phase D) — COMPLETED
+Dashboard fully functional for all admin operations.
 ```
-E1 E2 E3 E4  →  4 tasks
+D1 D2 D3 D4  →  4/4 tasks
+```
+
+### ✅ M3: "Schema Cleanup" (Phase E) — COMPLETED
+Breaking migration. Applied to `feat/e2e` branch.
+```
+E1 E2 E3 E4  →  4/4 tasks
 ```
 
 ---

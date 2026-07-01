@@ -3,57 +3,10 @@ import { eq, desc, inArray } from 'drizzle-orm'
 import type { DocgenWorkerEnv } from '@repo/types'
 import { ok, err, generateId, now } from '@repo/utils'
 import { createLogger } from '@repo/middleware'
-import { templates, documents, skus, createDb } from '../models'
+import { documents, skus, createDb } from '../models'
 import { renderTemplate } from '../lib/renderer'
 import { getTemplateBuffer, storeRenderedDoc, docDownloadKey } from '../lib/storage'
 import { generateCv, type CvData } from '../lib/cv'
-
-// ─── Legacy render (templates table) ─────────────────────────────────────────
-
-export async function renderDoc(c: Context<{ Bindings: DocgenWorkerEnv }>) {
-  const log = createLogger('docgen', c.env)
-  const db = createDb(c.env.DB)
-  const body = await c.req.json() as {
-    userId: string; agentSlug: string; templateId: string
-    fieldValues: Record<string, unknown>; transactionId?: string
-  }
-
-  if (!body.userId || !body.templateId || !body.fieldValues) return c.json(err('userId, templateId, fieldValues required'), 400)
-
-  const tmpl = await db.select().from(templates).where(eq(templates.id, body.templateId)).get()
-  if (!tmpl) return c.json(err('Template not found'), 404)
-  if (!tmpl.isActive) return c.json(err('Template is not active'), 400)
-
-  try {
-    const r2Obj = await c.env.DOCS_BUCKET.get(tmpl.r2Key)
-    if (!r2Obj) return c.json(err('Template file not found in storage'), 500)
-    const docxBuffer = await r2Obj.arrayBuffer()
-
-    let docxText = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false }).decode(docxBuffer)
-    for (const [key, value] of Object.entries(body.fieldValues)) {
-      docxText = docxText.replaceAll(`{${key}}`, String(value ?? ''))
-    }
-    const outBuffer = new TextEncoder().encode(docxText)
-
-    const fileKey = `documents/${body.userId}/${generateId()}.docx`
-    await c.env.DOCS_BUCKET.put(fileKey, outBuffer, { httpMetadata: { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' } })
-
-    const id = generateId()
-    await db.insert(documents).values({
-      id, userId: body.userId, agentSlug: body.agentSlug,
-      templateId: body.templateId, type: tmpl.documentType,
-      title: `${tmpl.name} — ${body.fieldValues.full_name ?? body.fieldValues.name ?? body.userId}`,
-      fileUrl: fileKey, fieldValues: JSON.stringify(body.fieldValues),
-      transactionId: body.transactionId ?? null, createdAt: now(),
-    })
-
-    log.info({ userId: body.userId, templateId: body.templateId }, 'docgen:render:done')
-    return c.json(ok({ id, fileKey, title: tmpl.name }), 201)
-  } catch (e) {
-    log.error({ err: e }, 'docgen:render:error')
-    return c.json(err('Render failed'), 500)
-  }
-}
 
 // ─── SKU render ───────────────────────────────────────────────────────────────
 

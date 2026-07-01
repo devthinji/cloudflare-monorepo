@@ -35,7 +35,6 @@ POST /api/v1/machine/advance      — ConversationMachine (called by AAF workers
 
 GET  /api/v1/agent/*              — proxied to AGENT_WORKER
 GET  /api/v1/docgen/*             — proxied to DOCGEN_WORKER
-GET  /api/v1/templates/*          — proxied to DOCGEN_WORKER
 GET  /api/v1/payments/*           — proxied to PAYMENTS_WORKER
 
 POST /webhooks/*                  — payment callbacks (public, no JWT)
@@ -93,10 +92,10 @@ Location: `drizzle/migration/0000_init.sql`
 Schema:   `drizzle/schema/database.ts`
 
 Tables in this migration:
-- `agents`, `admins`
+- `agents`
 - `customers` (renamed from users — phone-identified WhatsApp users)
 - `conversations`, `messages`
-- `documents`, `templates`
+- `documents`
 - `skus`, `sku_agent_access`
 - `transactions`
 

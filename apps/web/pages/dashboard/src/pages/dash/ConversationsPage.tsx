@@ -207,7 +207,7 @@ export default function ConversationsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    {['User', 'Agent', 'Channel', 'Status', 'Last Active'].map(h => (
+                    {['User', 'Agent', 'Messages', 'Last Message', 'Status', 'Last Active'].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -217,7 +217,16 @@ export default function ConversationsPage() {
                     <tr key={c.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openMessageThread(c)}>
                       <td className="px-4 py-3 font-mono text-xs text-gray-600">{c.userId}</td>
                       <td className="px-4 py-3"><span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{c.agentSlug}</span></td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{c.channel}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-semibold text-gray-600">{c.messageCount ?? '—'}</span>
+                      </td>
+                      <td className="px-4 py-3 max-w-[200px]">
+                        {c.lastMessage ? (
+                          <p className="text-xs text-gray-500 truncate">{c.lastMessage}</p>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
                           {c.status}

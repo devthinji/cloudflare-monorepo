@@ -53,44 +53,7 @@ export const customers = sqliteTable('customers', {
   updatedAt:    text('updated_at').notNull(),
 })
 
-// ─── Auth: admin users (dashboard login) ─────────────────────────────────────
-
-export const admins = sqliteTable('admins', {
-  id:         text('id').primaryKey(),
-  name:       text('name').notNull(),
-  email:      text('email').notNull().unique(),
-  phone:      text('phone'),
-  roles:      text('roles').notNull().default('["admin"]'),
-  scope:      text('scope'),
-  hash:       text('hash').notNull(),
-  secretWord: text('secret_word'),
-  contact:    text('contact'),
-  isActive:   integer('is_active', { mode: 'boolean' }).notNull().default(true),
-  createdAt:  text('created_at').notNull(),
-  updatedAt:  text('updated_at').notNull(),
-})
-
-// ─── Docgen: templates, documents ─────────────────────────────────────────────
-
-export const templates = sqliteTable('templates', {
-  id:           text('id').primaryKey(),
-  name:         text('name').notNull(),
-  slug:         text('slug').notNull().unique(),
-  description:  text('description'),
-  documentType: text('document_type').notNull(),
-  tier:         text('tier'),
-  agentSlugs:   text('agent_slugs').notNull().default('[]'),
-  r2Key:        text('r2_key').notNull(),
-  previewUrl:   text('preview_url'),
-  fieldSchema:  text('field_schema').notNull().default('[]'),
-  price:        real('price').notNull().default(0),
-  currency:     text('currency').notNull().default('KES'),
-  isActive:     integer('is_active', { mode: 'boolean' }).notNull().default(false),
-  extractionStatus: text('extraction_status').notNull().default('pending'),
-  extractionError:  text('extraction_error'),
-  createdAt:    text('created_at').notNull(),
-  updatedAt:    text('updated_at').notNull(),
-})
+// ─── Docgen: documents ────────────────────────────────────────────────────────
 
 export const documents = sqliteTable('documents', {
   id:            text('id').primaryKey(),

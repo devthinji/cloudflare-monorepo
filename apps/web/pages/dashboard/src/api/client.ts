@@ -46,13 +46,16 @@ export const agentsApi = {
 // ── Conversations ──────────────────────────────────────────────────────────────
 
 export interface Conversation {
-  id:        string
-  userId:    string
-  agentSlug: string
-  channel:   string
-  status:    string
-  createdAt: string
-  updatedAt: string
+  id:            string
+  userId:        string
+  agentSlug:     string
+  channel:       string
+  status:        string
+  createdAt:     string
+  updatedAt:     string
+  messageCount?:  number
+  lastMessage?:   string
+  lastMessageAt?: string
 }
 export const conversationsApi = {
   list: (userId: string) => request<Conversation[]>('GET', `/api/v1/agent/conversations/${userId}`),
@@ -241,6 +244,4 @@ export const machineApi = {
     request<{ reset: boolean }>('DELETE', `/api/v1/machine/context/${encodeURIComponent(userId)}/${encodeURIComponent(agentSlug)}`),
 }
 
-// Legacy alias so old imports don't break
-export type Template = SKU
-export const templatesApi = skusApi
+

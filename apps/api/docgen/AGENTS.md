@@ -41,14 +41,6 @@ GET    /api/v1/docgen/download          — ?key=<r2-key> — stream document by
 GET    /api/v1/docgen/documents         — list documents for a user
 GET    /api/v1/docgen/documents/all     — list all documents (admin)
 
--- Templates (legacy, still active) --
-GET    /api/v1/templates
-GET    /api/v1/templates/:id
-GET    /api/v1/templates/agent/:agentSlug
-POST   /api/v1/templates/upload
-PUT    /api/v1/templates/:id
-DELETE /api/v1/templates/:id
-GET    /api/v1/templates/:id/schema
 ```
 
 ## PipelineFactory
@@ -139,7 +131,6 @@ src/
   routes/index.ts
   controllers/
     skus.ts          — SKU upload, CRUD, pipeline trigger
-    templates.ts     — legacy template controller
     documents.ts     — render, download, list
     index.ts
   pipeline/

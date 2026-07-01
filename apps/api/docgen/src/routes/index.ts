@@ -4,7 +4,6 @@ import { ok, now } from '@repo/utils'
 import { err } from '@repo/utils'
 import { createLogger } from '@repo/middleware'
 import { requestLogger } from '@repo/middleware'
-import * as TemplatesCtrl from '../controllers/templates'
 import * as SkusCtrl      from '../controllers/skus'
 import * as DocumentsCtrl from '../controllers/documents'
 
@@ -13,14 +12,6 @@ const app = new Hono<{ Bindings: DocgenWorkerEnv }>()
 app.use('*', requestLogger('docgen'))
 
 app.get('/health', (c) => c.json(ok({ status: 'ok', service: 'api-docgen', timestamp: now() })))
-
-app.get('/api/v1/templates',                    TemplatesCtrl.listTemplates)
-app.get('/api/v1/templates/:id',                 TemplatesCtrl.getTemplate)
-app.get('/api/v1/templates/agent/:agentSlug',    TemplatesCtrl.getTemplatesByAgent)
-app.post('/api/v1/templates/upload',             TemplatesCtrl.uploadTemplate)
-app.put('/api/v1/templates/:id',                 TemplatesCtrl.updateTemplate)
-app.delete('/api/v1/templates/:id',              TemplatesCtrl.deleteTemplate)
-app.get('/api/v1/templates/:id/schema',          TemplatesCtrl.getTemplateSchema)
 
 app.post('/api/v1/docgen/skus/upload',           SkusCtrl.uploadSKU)
 app.get('/api/v1/docgen/skus',                   SkusCtrl.listSKUs)

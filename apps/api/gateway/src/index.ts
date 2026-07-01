@@ -73,12 +73,10 @@ function optionalJwt(): (c: any, next: any) => Promise<void> {
 
 app.use('/api/v1/agent/*',    optionalJwt())
 app.use('/api/v1/docgen/*',   optionalJwt())
-app.use('/api/v1/templates/*', optionalJwt())  // admin: require JWT
 app.use('/api/v1/payments/*', optionalJwt())
 
 app.route('/api/v1/agent',    agentRoutes)
 app.route('/api/v1/docgen',   docgenRoutes)
-app.route('/api/v1/templates', docgenRoutes)  // templates proxied to docgen
 app.route('/api/v1/payments', paymentsRoutes)
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────

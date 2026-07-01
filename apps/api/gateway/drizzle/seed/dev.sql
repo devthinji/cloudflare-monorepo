@@ -113,12 +113,3 @@ INSERT OR REPLACE INTO sku_agent_access (id, sku_id, agent_slug, enabled, create
   'access-saa-basic-elim-001', 'sku-basic-cv-free-001', 'elim', 1, '2026-06-30T10:58:31.744Z', '2026-06-30T10:58:31.744Z'
 );
 
-
--- ─── Admins ────────────────────────────────────────────────────────────────
-
-INSERT OR REPLACE INTO admins (id, name, email, phone, roles, scope, hash, secret_word, contact, is_active, created_at, updated_at) VALUES (
-  'admin-dev-001', 'Dev Admin', 'admin@example.com',
-  NULL, '["superadmin"]', '["*"]', '6f0e6f6c5c7f7c5a9e8d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3',
-  NULL, NULL, 1, '2026-06-30T10:58:31.744Z', '2026-06-30T10:58:31.744Z'
-);
-

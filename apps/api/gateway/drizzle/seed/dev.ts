@@ -171,24 +171,6 @@ const basicCvSteps: ConversationStep[] = basicCvFields.map((f, i) => ({
   validation: f.key === 'phone' ? 'phone' : f.required ? 'required' : undefined,
 }))
 
-// ─── Admins ───────────────────────────────────────────────────────────────────
-
-const adminsData = [
-  {
-    id:   'admin-dev-001',
-    name: 'Dev Admin',
-    email: 'admin@example.com',
-    phone: null,
-    roles: JSON.stringify(['superadmin']),
-    scope: JSON.stringify(['*']),
-    hash: '6f0e6f6c5c7f7c5a9e8d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3',
-    // SHA-256("admin123" + "dev-secret") — default dev credentials
-    secretWord: null,
-    contact: null,
-    isActive: 1,
-  },
-]
-
 const skus = [
   {
     id:                 'sku-cv-professional-001',
@@ -326,23 +308,6 @@ for (const a of skuAgentAccessData) {
   lines.push(
     `INSERT OR REPLACE INTO sku_agent_access (id, sku_id, agent_slug, enabled, created_at, updated_at) VALUES (`,
     `  '${esc(a.id)}', '${esc(a.skuId)}', '${esc(a.agentSlug)}', ${a.enabled}, '${now}', '${now}'`,
-    `);`,
-    '',
-  )
-}
-
-lines.push(
-  '',
-  '-- ─── Admins ────────────────────────────────────────────────────────────────',
-  '',
-)
-
-for (const a of adminsData) {
-  lines.push(
-    `INSERT OR REPLACE INTO admins (id, name, email, phone, roles, scope, hash, secret_word, contact, is_active, created_at, updated_at) VALUES (`,
-    `  '${esc(a.id)}', '${esc(a.name)}', '${esc(a.email)}',`,
-    `  ${a.phone ? `'${esc(a.phone)}'` : 'NULL'}, '${esc(a.roles)}', '${esc(a.scope)}', '${esc(a.hash)}',`,
-    `  ${a.secretWord ? `'${esc(a.secretWord)}'` : 'NULL'}, ${a.contact ? `'${esc(a.contact)}'` : 'NULL'}, ${a.isActive}, '${now}', '${now}'`,
     `);`,
     '',
   )

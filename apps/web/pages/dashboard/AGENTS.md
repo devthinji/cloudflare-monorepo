@@ -40,11 +40,6 @@ agentsApi.create(data)
 agentsApi.update(slug, data)
 agentsApi.delete(slug)
 
-templatesApi.list()
-templatesApi.upload(formData)     // multipart/form-data
-templatesApi.update(id, data)
-templatesApi.delete(id)
-
 conversationsApi.list()
 conversationsApi.getMessages(id)
 
