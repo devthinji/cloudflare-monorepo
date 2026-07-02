@@ -27,12 +27,28 @@ export type BlueprintEvent =
   | 'WANTS_ANOTHER'
   | 'WANTS_TO_CLOSE'
 
+/** Node categories mirrored from the palette: Basic, Message, Execute. */
+export type NodeKind = 'stage' | 'transition' | 'message' | 'execute'
+export type MessageType = 'text' | 'image'
+
 export interface VisualNodeDef {
   id: string
-  stage: StageType
+  /** Defaults to 'stage' when absent — keeps old blueprints (pre node-kinds) valid. */
+  kind?: NodeKind
+  // — stage (Basic) —
+  stage?: StageType
   label: string
   description?: string
   subStages?: string[]
+  // — transition (Basic) —
+  condition?: string
+  // — message (Message) —
+  messageType?: MessageType
+  content?: string
+  mediaUrl?: string
+  // — execute (Execute) —
+  action?: string
+  params?: string
   position: { x: number; y: number }
 }
 

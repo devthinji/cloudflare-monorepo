@@ -18,12 +18,16 @@ import {
 import '@xyflow/react/dist/style.css'
 import StageNode from './nodes/StageNode'
 import type { StageNodeData } from './nodes/StageNode'
+import TransitionNode from './nodes/TransitionNode'
+import MessageNode from './nodes/MessageNode'
+import ExecuteNode from './nodes/ExecuteNode'
 import WorkflowSidebar from './WorkflowSidebar'
 import WorkflowToolbar from './WorkflowToolbar'
 import NodeConfigPanel from './panels/NodeConfigPanel'
 import { useBlueprintExport, useBlueprintImport, nodesFromBlueprint, edgesFromBlueprint } from './hooks/useBlueprint'
 import { useBlueprintLoad, useBlueprintSave } from './hooks/useMachineBlueprint'
-import type { VisualBlueprint, BlueprintEvent } from './types'
+import { blueprintFromCanvas } from './hooks/useBlueprint'
+import type { VisualBlueprint } from './types'
 
 const DEFAULT_WORKFLOW_NODES: Node<StageNodeData>[] = [
   {
@@ -80,50 +84,18 @@ const DEFAULT_WORKFLOW_NODES: Node<StageNodeData>[] = [
 ]
 
 const DEFAULT_WORKFLOW_EDGES: Edge[] = [
-  {
-    id: 'edge_identify_auth',
-    source: 'identify',
-    target: 'auth',
-    data: { event: 'CUSTOMER_NEW' as BlueprintEvent, guard: '' },
-    animated: true,
-    style: { stroke: '#94a3b8', strokeWidth: 2 },
-  },
-  {
-    id: 'edge_identify_collect',
-    source: 'identify',
-    target: 'collect',
-    data: { event: 'CUSTOMER_REGISTERED' as BlueprintEvent, guard: '' },
-    animated: true,
-    style: { stroke: '#94a3b8', strokeWidth: 2 },
-  },
-  {
-    id: 'edge_auth_collect',
-    source: 'auth',
-    target: 'collect',
-    data: { event: 'NAME_VALID' as BlueprintEvent, guard: '' },
-    animated: true,
-    style: { stroke: '#94a3b8', strokeWidth: 2 },
-  },
-  {
-    id: 'edge_collect_farewell',
-    source: 'collect',
-    target: 'farewell',
-    data: { event: 'DOC_READY' as BlueprintEvent, guard: '' },
-    animated: true,
-    style: { stroke: '#94a3b8', strokeWidth: 2 },
-  },
-  {
-    id: 'edge_farewell_closed',
-    source: 'farewell',
-    target: 'closed',
-    data: { event: 'WANTS_TO_CLOSE' as BlueprintEvent, guard: '' },
-    animated: true,
-    style: { stroke: '#94a3b8', strokeWidth: 2 },
-  },
+  { id: 'edge_identify_auth',    source: 'identify', target: 'auth',     data: { event: 'CUSTOMER_NEW', guard: '' },        animated: true, style: { stroke: '#94a3b8', strokeWidth: 2 } },
+  { id: 'edge_identify_collect', source: 'identify', target: 'collect', data: { event: 'CUSTOMER_REGISTERED', guard: '' }, animated: true, style: { stroke: '#94a3b8', strokeWidth: 2 } },
+  { id: 'edge_auth_collect',     source: 'auth',     target: 'collect', data: { event: 'NAME_VALID', guard: '' },          animated: true, style: { stroke: '#94a3b8', strokeWidth: 2 } },
+  { id: 'edge_collect_farewell', source: 'collect',  target: 'farewell', data: { event: 'DOC_READY', guard: '' },          animated: true, style: { stroke: '#94a3b8', strokeWidth: 2 } },
+  { id: 'edge_farewell_closed',  source: 'farewell', target: 'closed',  data: { event: 'WANTS_TO_CLOSE', guard: '' },      animated: true, style: { stroke: '#94a3b8', strokeWidth: 2 } },
 ]
 
 const nodeTypes: NodeTypes = {
   stage: StageNode,
+  transition: TransitionNode,
+  message: MessageNode,
+  execute: ExecuteNode,
 }
 
 const defaultEdgeOptions = {
@@ -151,7 +123,7 @@ export default function WorkflowEditor({
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
 
-  const [selectedNode, setSelectedNode] = useState<Node<StageNodeData> | null>(null)
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -218,29 +190,7 @@ export default function WorkflowEditor({
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
 
     saveTimeoutRef.current = setTimeout(async () => {
-      const blueprint: VisualBlueprint = {
-        id: blueprintId,
-        version: blueprintVersion,
-        agentSlug,
-        nodes: nodes.map(n => {
-          const data = n.data as StageNodeData
-          return {
-            id: n.id,
-            stage: data.stage,
-            label: data.label,
-            description: data.description,
-            subStages: data.subStages,
-            position: n.position,
-          }
-        }),
-        edges: edges.map(e => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          event: ((e.data as any)?.event || '') as BlueprintEvent,
-          guard: (e.data as any)?.guard || '',
-        })),
-      }
+      const blueprint: VisualBlueprint = blueprintFromCanvas(blueprintId, blueprintVersion, agentSlug, nodes, edges)
 
       setSaveStatus('saving')
       const success = await blueprintSave(agentSlug, blueprintVersion, blueprint)
@@ -279,9 +229,10 @@ export default function WorkflowEditor({
     (event: DragEvent) => {
       event.preventDefault()
       const raw = event.dataTransfer.getData('application/reactflow')
+      const nodeType = event.dataTransfer.getData('application/reactflow-type') || 'stage'
       if (!raw || !reactFlowInstance) return
 
-      const data: StageNodeData = JSON.parse(raw)
+      const data = JSON.parse(raw)
       const position = reactFlowInstance.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -291,7 +242,7 @@ export default function WorkflowEditor({
 
       const newNode: Node = {
         id: `node_${Date.now()}`,
-        type: 'stage',
+        type: nodeType,
         position,
         data,
       }
@@ -302,12 +253,12 @@ export default function WorkflowEditor({
   )
 
   const onSelectionChange = useCallback(({ nodes: selNodes, edges: selEdges }: { nodes: Node[]; edges: Edge[] }) => {
-    setSelectedNode((selNodes[0] as Node<StageNodeData>) ?? null)
+    setSelectedNode(selNodes[0] ?? null)
     setSelectedEdge(selEdges[0] ?? null)
   }, [])
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    setSelectedNode(node as Node<StageNodeData>)
+    setSelectedNode(node)
     setSelectedEdge(null)
   }, [])
 
@@ -330,7 +281,7 @@ export default function WorkflowEditor({
   }, [pushSnapshot])
 
   const handleUpdateNode = useCallback(
-    (id: string, data: Partial<StageNodeData>) => {
+    (id: string, data: Record<string, unknown>) => {
       pushSnapshot()
       setNodes(nds =>
         nds.map(n => (n.id === id ? { ...n, data: { ...n.data, ...data } } : n)),
@@ -410,6 +361,8 @@ export default function WorkflowEditor({
           </ReactFlowProvider>
         </div>
         <NodeConfigPanel
+          nodes={nodes}
+          edges={edges}
           selectedNode={selectedNode}
           selectedEdge={selectedEdge}
           onUpdateNode={handleUpdateNode}

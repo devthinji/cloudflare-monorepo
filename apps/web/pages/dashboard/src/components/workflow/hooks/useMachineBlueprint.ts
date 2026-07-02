@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { VisualBlueprint } from '../types'
 
-const GATEWAY_URL = 'http://localhost:8787'
+import { BASE_URL as GATEWAY_URL } from '@/api/client'
 
 export function useBlueprintLoad() {
   const [loading, setLoading] = useState(false)
