@@ -5,4 +5,4 @@ export function createDb(d1: D1Database) {
   return drizzle(d1, { schema })
 }
 
-export { documents, skus, skuAgentAccess } from '../db/schema'
+export { documents, skus, skuAgentAccess, automationPipelines, automationRuns } from '../db/schema'

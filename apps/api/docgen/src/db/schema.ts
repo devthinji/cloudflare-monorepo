@@ -48,3 +48,26 @@ export const documents = sqliteTable('documents', {
   transactionId:  text('transaction_id'),
   createdAt:      text('created_at').notNull(),
 })
+
+// ─── Automation pipelines (make.com-style step chains) ───────────────────────
+// Mirrors apps/api/gateway/drizzle/schema/database.ts — source of truth there.
+
+export const automationPipelines = sqliteTable('automation_pipelines', {
+  id:        text('id').primaryKey(),
+  name:      text('name').notNull(),
+  agentSlug: text('agent_slug').notNull().default('default'),
+  steps:     text('steps').notNull().default('[]'),
+  isActive:  integer('is_active').notNull().default(1),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+export const automationRuns = sqliteTable('automation_runs', {
+  id:         text('id').primaryKey(),
+  pipelineId: text('pipeline_id').notNull(),
+  status:     text('status').notNull().default('success'),
+  input:      text('input'),
+  output:     text('output'),
+  logs:       text('logs'),
+  createdAt:  text('created_at').notNull(),
+})

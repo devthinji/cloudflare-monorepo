@@ -9,6 +9,8 @@ import { docxToMarkdown }  from './docx-to-markdown'
 import { pdfToTxt }        from './pdf-to-txt'
 import { pdfToSchema }     from './pdf-to-schema'
 import { visionToSchema }  from './vision-to-schema'
+import { textToAudio }     from './text-to-audio'
+import { docxToPdf }       from './docx-to-pdf'
 
 export function registerAllConverters(): void {
   pipelineFactory
@@ -20,4 +22,6 @@ export function registerAllConverters(): void {
     .register('png',   'placeholder_schema', visionToSchema)
     .register('jpg',   'placeholder_schema', visionToSchema)
     .register('canva', 'placeholder_schema', visionToSchema)
+    .register('text',  'audio',               textToAudio)
+    .register('docx',  'pdf',                 docxToPdf)
 }

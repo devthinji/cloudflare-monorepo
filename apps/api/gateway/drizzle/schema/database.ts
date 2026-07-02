@@ -133,3 +133,25 @@ export const transactions = sqliteTable('transactions', {
   createdAt:          text('created_at').notNull(),
   updatedAt:          text('updated_at').notNull(),
 })
+
+// ─── Docgen: automation pipelines (make.com-style step chains) ───────────────
+
+export const automationPipelines = sqliteTable('automation_pipelines', {
+  id:        text('id').primaryKey(),
+  name:      text('name').notNull(),
+  agentSlug: text('agent_slug').notNull().default('default'),
+  steps:     text('steps').notNull().default('[]'), // JSON: AutomationStep[]
+  isActive:  integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+export const automationRuns = sqliteTable('automation_runs', {
+  id:           text('id').primaryKey(),
+  pipelineId:   text('pipeline_id').notNull(),
+  status:       text('status').notNull().default('success'), // success | error
+  input:        text('input'),
+  output:       text('output'),
+  logs:         text('logs'), // JSON: StepLogEntry[]
+  createdAt:    text('created_at').notNull(),
+})
