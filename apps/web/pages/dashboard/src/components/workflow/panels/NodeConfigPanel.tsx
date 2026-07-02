@@ -76,7 +76,7 @@ export default function NodeConfigPanel({ nodes, edges, selectedNode: selectedNo
       <Tabs defaultValue="inspector" className="flex flex-1 flex-col overflow-hidden">
         <TabsList className="mb-3 w-full">
           <TabsTrigger value="inspector" className="flex-1">Inspector</TabsTrigger>
-          <TabsTrigger value="test" className="flex-1">Test Flow</TabsTrigger>
+          <TabsTrigger value="test" className="flex-1">Emulator</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inspector" className="flex-1 overflow-y-auto">

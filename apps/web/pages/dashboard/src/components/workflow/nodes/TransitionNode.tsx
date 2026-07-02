@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { GitBranch } from 'lucide-react'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 export type TransitionNodeData = {
@@ -17,24 +18,24 @@ interface TransitionNodeProps {
 
 function TransitionNode({ data, selected }: TransitionNodeProps) {
   return (
-    <div
+    <Card
       className={cn(
-        'w-48 rounded-lg border-2 border-dashed border-purple-400 bg-purple-50 px-3 py-2 shadow-sm transition-shadow',
+        'w-52 border-l-4 border-l-purple-500 shadow-md transition-shadow',
         selected && 'shadow-lg ring-2 ring-purple-400/50',
       )}
     >
       <Handle type="target" position={Position.Left} className="!w-3 !h-3 !border-2 !border-white !bg-purple-500" />
-      <div className="flex items-center gap-1.5">
+      <CardHeader className="flex-row items-center gap-2">
         <GitBranch className="h-3.5 w-3.5 shrink-0 text-purple-600" />
-        <span className="text-sm font-semibold text-purple-900 truncate">{data.label}</span>
-      </div>
-      {data.condition && (
-        <p className="mt-1 truncate rounded bg-purple-100 px-1.5 py-0.5 text-[11px] font-mono text-purple-700">
-          {data.condition}
+        <CardTitle className="text-sm font-semibold truncate">{data.label}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="truncate rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+          {data.condition || 'no condition set'}
         </p>
-      )}
+      </CardContent>
       <Handle type="source" position={Position.Right} className="!w-3 !h-3 !border-2 !border-white !bg-purple-500" />
-    </div>
+    </Card>
   )
 }
 
