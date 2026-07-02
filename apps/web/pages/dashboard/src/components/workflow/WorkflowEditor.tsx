@@ -18,9 +18,6 @@ import {
 import '@xyflow/react/dist/style.css'
 import StageNode from './nodes/StageNode'
 import type { StageNodeData } from './nodes/StageNode'
-import TransitionNode from './nodes/TransitionNode'
-import MessageNode from './nodes/MessageNode'
-import ExecuteNode from './nodes/ExecuteNode'
 import WorkflowSidebar from './WorkflowSidebar'
 import WorkflowToolbar from './WorkflowToolbar'
 import NodeConfigPanel from './panels/NodeConfigPanel'
@@ -93,9 +90,6 @@ const DEFAULT_WORKFLOW_EDGES: Edge[] = [
 
 const nodeTypes: NodeTypes = {
   stage: StageNode,
-  transition: TransitionNode,
-  message: MessageNode,
-  execute: ExecuteNode,
 }
 
 const defaultEdgeOptions = {

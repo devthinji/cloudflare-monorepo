@@ -27,28 +27,29 @@ export type BlueprintEvent =
   | 'WANTS_ANOTHER'
   | 'WANTS_TO_CLOSE'
 
-/** Node categories mirrored from the palette: Basic, Message, Execute. */
-export type NodeKind = 'stage' | 'transition' | 'message' | 'execute'
-export type MessageType = 'text' | 'image'
+/**
+ * Botpress-v12-style node action: nodes carry an ordered list of these,
+ * run "onEnter", instead of actions living as separate draggable nodes.
+ */
+export type NodeActionType = 'say_text' | 'say_image' | 'execute_code'
+
+export interface NodeAction {
+  id: string
+  type: NodeActionType
+  content?: string     // say_text body, or say_image caption
+  mediaUrl?: string     // say_image
+  actionName?: string   // execute_code: action/function name
+  params?: string       // execute_code: raw JSON params
+}
 
 export interface VisualNodeDef {
   id: string
-  /** Defaults to 'stage' when absent — keeps old blueprints (pre node-kinds) valid. */
-  kind?: NodeKind
-  // — stage (Basic) —
-  stage?: StageType
+  stage: StageType
   label: string
   description?: string
   subStages?: string[]
-  // — transition (Basic) —
-  condition?: string
-  // — message (Message) —
-  messageType?: MessageType
-  content?: string
-  mediaUrl?: string
-  // — execute (Execute) —
-  action?: string
-  params?: string
+  /** Ordered actions run when the node is entered (Botpress v12's onEnter). */
+  actions?: NodeAction[]
   position: { x: number; y: number }
 }
 

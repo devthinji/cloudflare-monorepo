@@ -1,19 +1,13 @@
 import { useCallback } from 'react'
 import type { Node, Edge } from '@xyflow/react'
-import type { VisualBlueprint, VisualNodeDef, VisualEdgeDef, BlueprintEvent, NodeKind } from '../types'
+import type { VisualBlueprint, VisualNodeDef, VisualEdgeDef, BlueprintEvent, NodeAction } from '../types'
 
 interface NodeDataAny {
-  kind?: NodeKind
   stage?: string
   label: string
   description?: string
   subStages?: string[]
-  condition?: string
-  messageType?: 'text' | 'image'
-  content?: string
-  mediaUrl?: string
-  action?: string
-  params?: string
+  actions?: NodeAction[]
   [key: string]: unknown
 }
 
@@ -28,17 +22,11 @@ export function blueprintFromCanvas(
     const d = n.data as NodeDataAny
     return {
       id: n.id,
-      kind: d.kind ?? 'stage',
-      stage: d.stage as VisualNodeDef['stage'],
+      stage: (d.stage ?? 'identify') as VisualNodeDef['stage'],
       label: d.label,
       description: d.description,
       subStages: d.subStages,
-      condition: d.condition,
-      messageType: d.messageType,
-      content: d.content,
-      mediaUrl: d.mediaUrl,
-      action: d.action,
-      params: d.params,
+      actions: d.actions,
       position: { x: n.position.x, y: n.position.y },
     }
   })
@@ -94,24 +82,18 @@ export function useBlueprintImport(
 }
 
 export function nodesFromBlueprint(bp: VisualBlueprint): Node[] {
-  return bp.nodes.map(vn => {
-    const kind: NodeKind = vn.kind ?? 'stage'
-    const data: NodeDataAny =
-      kind === 'stage'
-        ? { stage: vn.stage ?? 'identify', label: vn.label, description: vn.description, subStages: vn.subStages }
-        : kind === 'transition'
-        ? { kind, label: vn.label, condition: vn.condition }
-        : kind === 'message'
-        ? { kind, label: vn.label, messageType: vn.messageType ?? 'text', content: vn.content, mediaUrl: vn.mediaUrl }
-        : { kind, label: vn.label, action: vn.action, params: vn.params }
-
-    return {
-      id: vn.id,
-      type: kind,
-      position: vn.position,
-      data,
-    }
-  })
+  return bp.nodes.map(vn => ({
+    id: vn.id,
+    type: 'stage',
+    position: vn.position,
+    data: {
+      stage: vn.stage ?? 'identify',
+      label: vn.label,
+      description: vn.description,
+      subStages: vn.subStages,
+      actions: vn.actions ?? [],
+    },
+  }))
 }
 
 export function edgesFromBlueprint(bp: VisualBlueprint): Edge[] {

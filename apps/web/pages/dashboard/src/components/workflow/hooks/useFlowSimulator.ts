@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
+import type { NodeAction } from '../types'
 
 export interface ChatBubble {
   id: string
@@ -9,36 +10,35 @@ export interface ChatBubble {
 }
 
 interface NodeDataAny {
-  kind?: 'stage' | 'transition' | 'message' | 'execute'
   label: string
   description?: string
-  messageType?: 'text' | 'image'
-  content?: string
-  mediaUrl?: string
-  action?: string
+  actions?: NodeAction[]
   [key: string]: unknown
 }
 
-function bubbleForNode(node: Node, id: string): ChatBubble | null {
+function bubblesForNode(node: Node, prefix: string): ChatBubble[] {
   const data = node.data as NodeDataAny
-  const kind = data.kind ?? 'stage'
+  const bubbles: ChatBubble[] = [
+    { id: `${prefix}-enter`, from: 'system', text: `→ Entered "${data.label}"${data.description ? ` — ${data.description}` : ''}` },
+  ]
 
-  if (kind === 'message') {
-    return data.messageType === 'image'
-      ? { id, from: 'bot', text: data.content || data.label, imageUrl: data.mediaUrl }
-      : { id, from: 'bot', text: data.content || `[${data.label}] — no reply text set` }
+  for (const action of data.actions ?? []) {
+    if (action.type === 'say_text') {
+      bubbles.push({ id: `${prefix}-${action.id}`, from: 'bot', text: action.content || '[empty text]' })
+    } else if (action.type === 'say_image') {
+      bubbles.push({ id: `${prefix}-${action.id}`, from: 'bot', text: action.content || '', imageUrl: action.mediaUrl })
+    } else {
+      bubbles.push({ id: `${prefix}-${action.id}`, from: 'system', text: `⚙ Running action: ${action.actionName || 'unnamed action'}` })
+    }
   }
-  if (kind === 'execute') {
-    return { id, from: 'system', text: `⚙ Running action: ${data.action || data.label}` }
-  }
-  // stage / transition — narrate the stage entry
-  return { id, from: 'system', text: `→ Entered "${data.label}"${data.description ? ` — ${data.description}` : ''}` }
+
+  return bubbles
 }
 
 /** Client-side graph walker used to test a blueprint's conversation flow before it's deployed. */
 export function useFlowSimulator(nodes: Node[], edges: Edge[]) {
   const findStart = useCallback(() => {
-    const identify = nodes.find(n => (n.data as NodeDataAny).stage === 'identify')
+    const identify = nodes.find(n => (n.data as { stage?: string }).stage === 'identify')
     return identify?.id ?? nodes[0]?.id ?? null
   }, [nodes])
 
@@ -46,8 +46,7 @@ export function useFlowSimulator(nodes: Node[], edges: Edge[]) {
   const [history, setHistory] = useState<ChatBubble[]>(() => {
     const startId = findStart()
     const startNode = nodes.find(n => n.id === startId)
-    const bubble = startNode ? bubbleForNode(startNode, `start-${startNode.id}`) : null
-    return bubble ? [bubble] : []
+    return startNode ? bubblesForNode(startNode, `start-${startNode.id}`) : []
   })
 
   const outgoing = useMemo(
@@ -59,8 +58,7 @@ export function useFlowSimulator(nodes: Node[], edges: Edge[]) {
     const startId = findStart()
     const startNode = nodes.find(n => n.id === startId)
     setCurrentNodeId(startId)
-    const bubble = startNode ? bubbleForNode(startNode, `start-${Date.now()}`) : null
-    setHistory(bubble ? [bubble] : [])
+    setHistory(startNode ? bubblesForNode(startNode, `start-${Date.now()}`) : [])
   }, [nodes, findStart])
 
   const advance = useCallback(
@@ -72,9 +70,7 @@ export function useFlowSimulator(nodes: Node[], edges: Edge[]) {
       setHistory(prev => [
         ...prev,
         { id: `user-${Date.now()}`, from: 'user', text: eventLabel },
-        ...(targetNode
-          ? [bubbleForNode(targetNode, `node-${Date.now()}`)].filter((b): b is ChatBubble => b !== null)
-          : []),
+        ...(targetNode ? bubblesForNode(targetNode, `node-${Date.now()}`) : []),
       ])
       setCurrentNodeId(edge.target)
     },
